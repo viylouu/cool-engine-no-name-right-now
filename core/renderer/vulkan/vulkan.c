@@ -18,6 +18,12 @@
 #include <stdio.h>
 #include <string.h>
 
+/* VARS */
+
+const char* requiredextensions[] = {
+    VK_KHR_SWAPCHAIN_EXTENSION_NAME
+};
+
 /* PRIVATE FUNCS */
 
 void eng_RENDERER_BACKEND_VULKAN_create_instance(EngRendererInterface* this, EngPlatformInterface* platform) {
@@ -114,10 +120,6 @@ uint8_t eng_RENDERER_BACKEND_VULKAN_check_device_extension_support(VkPhysicalDev
 
     VkExtensionProperties* availableextensions = malloc(sizeof(VkExtensionProperties) * extensioncount);
     vkEnumerateDeviceExtensionProperties(device, 0, &extensioncount, availableextensions);
-
-    const char* requiredextensions[] = {
-        VK_KHR_SWAPCHAIN_EXTENSION_NAME
-    };
 
     uint32_t requiredcount = sizeof(requiredextensions) / sizeof(requiredextensions[0]);
 
@@ -218,8 +220,8 @@ void eng_RENDERER_BACKEND_VULKAN_create_logical_device(EngRendererInterface* thi
         createinfo.pQueueCreateInfos = queuecreateinfos;
         createinfo.queueCreateInfoCount = unique_count;
         createinfo.pEnabledFeatures = &devicefeatures;
-
-    createinfo.enabledExtensionCount = 0;
+        createinfo.enabledExtensionCount = sizeof(requiredextensions) / sizeof(requiredextensions[0]);
+        createinfo.ppEnabledExtensionNames = requiredextensions;
 
     /*if (enableValidationLayersOrWhatever) {
         createinfo.enabledLayerCount = [INSERT VALIDATION LAYER SIZE VARIABLE];
