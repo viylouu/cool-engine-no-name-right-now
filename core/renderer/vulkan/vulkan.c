@@ -386,6 +386,13 @@ void eng_RENDERER_BACKEND_VULKAN_create_swapchain(EngRendererInterface* this, En
         printf("failed to create swapchain!\n");
         exit(1);
     }
+
+    vkGetSwapchainImagesKHR(vkback->device, vkback->swapchain, &imagecount, 0);
+    vkback->swapchain_images = malloc(sizeof(VkImage) * imagecount);
+    vkGetSwapchainImagesKHR(vkback->device, vkback->swapchain, &imagecount, vkback->swapchain_images);
+
+    vkback->swapchain_image_format = surfaceformat.format;
+    vkback->swapchain_extent = extent;
 }
 
 /* INTERFACE FUNCS */
