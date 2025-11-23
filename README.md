@@ -1,2 +1,1 @@
-# todo:
-- windows build get that working
+this is a readme file
