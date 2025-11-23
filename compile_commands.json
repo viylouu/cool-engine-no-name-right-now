@@ -1,0 +1,32 @@
+[
+	{
+            "directory": "/media/storage/projects/engine",
+            "command": "gcc -std=c99 -pedantic -Wall -Wextra  -Iengine -I. -Ideps -isystem -O0 -g -c \"./core/platform/glfw/glfw.c\"",
+            "file": "/media/storage/projects/engine/core/platform/glfw/glfw.c"
+        },
+	{
+            "directory": "/media/storage/projects/engine",
+            "command": "gcc -std=c99 -pedantic -Wall -Wextra  -Iengine -I. -Ideps -isystem -O0 -g -c \"./core/platform/platform.c\"",
+            "file": "/media/storage/projects/engine/core/platform/platform.c"
+        },
+	{
+            "directory": "/media/storage/projects/engine",
+            "command": "gcc -std=c99 -pedantic -Wall -Wextra  -Iengine -I. -Ideps -isystem -O0 -g -c \"./core/renderer/vulkan/vulkan.c\"",
+            "file": "/media/storage/projects/engine/core/renderer/vulkan/vulkan.c"
+        },
+	{
+            "directory": "/media/storage/projects/engine",
+            "command": "gcc -std=c99 -pedantic -Wall -Wextra  -Iengine -I. -Ideps -isystem -O0 -g -c \"./core/renderer/renderer.c\"",
+            "file": "/media/storage/projects/engine/core/renderer/renderer.c"
+        },
+	{
+            "directory": "/media/storage/projects/engine",
+            "command": "gcc -std=c99 -pedantic -Wall -Wextra  -Iengine -I. -Ideps -isystem -O0 -g -c \"./core/core.c\"",
+            "file": "/media/storage/projects/engine/core/core.c"
+        },
+	{
+            "directory": "/media/storage/projects/engine",
+            "command": "gcc -std=c99 -pedantic -Wall -Wextra  -Iengine -I. -Ideps -isystem -O0 -g -c \"./src/main.c\"",
+            "file": "/media/storage/projects/engine/src/main.c"
+        }
+]
