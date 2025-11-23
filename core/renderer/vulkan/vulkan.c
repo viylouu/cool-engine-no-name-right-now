@@ -10,29 +10,29 @@
 
 /* TYPES */
 
-typedef struct EngRendererInterface_BACKEND_VULKAN {
+typedef struct EngRendererInterface_RENDERER_BACKEND_VULKAN {
     VkInstance instance;
     VkPhysicalDevice physical_device;
-} EngRendererInterface_BACKEND_VULKAN;
+    VkDevice device;
+    VkQueue graphics_queue;
+} EngRendererInterface_RENDERER_BACKEND_VULKAN;
 
 /* PRIVATE FUNCS */
 
 void eng_RENDERER_BACKEND_VULKAN_create_instance(EngRendererInterface* this, EngPlatformInterface* platform) {
-    EngRendererInterface_BACKEND_VULKAN* vkback = this->backend_data;
+    EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
 
-    VkApplicationInfo appinfo = {
-        .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-        .pApplicationName = "title",
-        .applicationVersion = VK_MAKE_VERSION(1,0,0),
-        .pEngineName = "untitled engine",
-        .engineVersion = VK_MAKE_VERSION(1,0,0),
-        .apiVersion = VK_API_VERSION_1_0
-    };
+    VkApplicationInfo appinfo = {0};
+        appinfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+        appinfo.pApplicationName = "title";
+        appinfo.applicationVersion = VK_MAKE_VERSION(1,0,0);
+        appinfo.pEngineName = "untitled engine";
+        appinfo.engineVersion = VK_MAKE_VERSION(1,0,0);
+        appinfo.apiVersion = VK_API_VERSION_1_0;
 
-    VkInstanceCreateInfo createinfo = {
-        .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-        .pApplicationInfo = &appinfo
-    };
+    VkInstanceCreateInfo createinfo = {0};
+        createinfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+        createinfo.pApplicationInfo = &appinfo;
 
     uint32_t extensioncount = 0;
     const char** extensions = 0;
@@ -96,7 +96,7 @@ uint8_t eng_RENDERER_BACKEND_VULKAN_is_device_suitable(VkPhysicalDevice device) 
 }
 
 void eng_RENDERER_BACKEND_VULKAN_pick_physical_device(EngRendererInterface* this) {
-    EngRendererInterface_BACKEND_VULKAN* vkback = this->backend_data;
+    EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
 
     uint32_t devicecount = 0;
     vkEnumeratePhysicalDevices(vkback->instance, &devicecount, 0);
@@ -124,15 +124,47 @@ void eng_RENDERER_BACKEND_VULKAN_pick_physical_device(EngRendererInterface* this
 }
 
 void eng_RENDERER_BACKEND_VULKAN_create_logical_device(EngRendererInterface* this) {
-    (void)this;
+    EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
+
+    EngData_RENDERER_BACKEND_VULKAN_queueFamilyIndices indices = eng_RENDERER_BACKEND_VULKAN_find_queue_families(vkback->physical_device);
+
+    VkDeviceQueueCreateInfo queuecreateinfo = {0};
+        queuecreateinfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        queuecreateinfo.queueFamilyIndex = indices.graphics_family;
+        queuecreateinfo.queueCount = 1;
+
+    float queuepriority = 1.f;
+    queuecreateinfo.pQueuePriorities = &queuepriority;
+
+    VkPhysicalDeviceFeatures devicefeatures = {0};
+
+    VkDeviceCreateInfo createinfo = {0};
+        createinfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+        createinfo.pQueueCreateInfos = &queuecreateinfo;
+        createinfo.queueCreateInfoCount = 1;
+        createinfo.pEnabledFeatures = &devicefeatures;
+
+    createinfo.enabledExtensionCount = 0;
+
+    /*if (enableValidationLayersOrWhatever) {
+        createinfo.enabledLayerCount = [INSERT VALIDATION LAYER SIZE VARIABLE];
+        createinfo.ppEnabledLayerNames = [INSERT VALIDATION LAYER ARRAY VARIABLE];
+    } else */{
+        createinfo.enabledLayerCount = 0;
+    }
+
+    if (vkCreateDevice(vkback->physical_device, &createinfo, 0, &vkback->device) != VK_SUCCESS) {
+        printf("failed to create logical device!\n");
+        exit(1);
+    }
+
+    vkGetDeviceQueue(vkback->device, indices.graphics_family, 0, &vkback->graphics_queue);
 }
 
 /* INTERFACE FUNCS */
 
 void eng_RENDERER_BACKEND_VULKAN_constr(EngRendererInterface* this, EngPlatformInterface* platform) {
-    (void)platform;
-
-    EngRendererInterface_BACKEND_VULKAN* vkback = malloc(sizeof(EngRendererInterface_BACKEND_VULKAN));
+    EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = malloc(sizeof(EngRendererInterface_RENDERER_BACKEND_VULKAN));
     this->backend_data = vkback;
 
     eng_RENDERER_BACKEND_VULKAN_create_instance(this, platform);
@@ -141,8 +173,9 @@ void eng_RENDERER_BACKEND_VULKAN_constr(EngRendererInterface* this, EngPlatformI
 }
 
 void eng_RENDERER_BACKEND_VULKAN_destr(EngRendererInterface* this) {
-    EngRendererInterface_BACKEND_VULKAN* vkback = this->backend_data;
+    EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
 
+    vkDestroyDevice(vkback->device, 0);
     vkDestroyInstance(vkback->instance, 0);
 
     free(vkback);
