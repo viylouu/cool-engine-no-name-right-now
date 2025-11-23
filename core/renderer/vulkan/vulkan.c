@@ -16,6 +16,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 /* PRIVATE FUNCS */
 
@@ -48,6 +49,7 @@ void eng_RENDERER_BACKEND_VULKAN_create_instance(EngRendererInterface* this, Eng
     } else {
         // add the following to extensions:
         //  VK_KHR_surface
+        //  VK_KHR_swapchain
         //  ... some other shit idfk
     }
 
@@ -106,10 +108,44 @@ EngData_RENDERER_BACKEND_VULKAN_queueFamilyIndices eng_RENDERER_BACKEND_VULKAN_f
     return indices;
 }
 
+uint8_t eng_RENDERER_BACKEND_VULKAN_check_device_extension_support(VkPhysicalDevice device) {
+    uint32_t extensioncount;
+    vkEnumerateDeviceExtensionProperties(device, 0, &extensioncount, 0);
+
+    VkExtensionProperties* availableextensions = malloc(sizeof(VkExtensionProperties) * extensioncount);
+    vkEnumerateDeviceExtensionProperties(device, 0, &extensioncount, availableextensions);
+
+    const char* requiredextensions[] = {
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME
+    };
+
+    uint32_t requiredcount = sizeof(requiredextensions) / sizeof(requiredextensions[0]);
+
+    for (uint32_t i = 0; i < extensioncount; ++i) {
+        VkExtensionProperties extension = availableextensions[i];
+        for (uint32_t j = 0; j < 1; ++j) {
+            if (!strcmp(extension.extensionName, requiredextensions[j])) {
+                --requiredcount;
+                requiredextensions[j] = requiredextensions[requiredcount];
+                break;
+            }
+        }
+
+        if (requiredcount == 0)
+            break;
+    }
+
+    free(availableextensions);
+
+    return requiredcount == 0;
+}
+
 uint8_t eng_RENDERER_BACKEND_VULKAN_is_device_suitable(EngRendererInterface* this, VkPhysicalDevice device) {
     EngData_RENDERER_BACKEND_VULKAN_queueFamilyIndices indices = eng_RENDERER_BACKEND_VULKAN_find_queue_families(this, device);
 
-    return indices.is_complete;
+    uint8_t extensions_supported = eng_RENDERER_BACKEND_VULKAN_check_device_extension_support(device);
+
+    return indices.is_complete && extensions_supported;
 }
 
 void eng_RENDERER_BACKEND_VULKAN_pick_physical_device(EngRendererInterface* this) {
