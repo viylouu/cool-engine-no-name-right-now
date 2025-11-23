@@ -56,20 +56,43 @@ void eng_RENDERER_BACKEND_VULKAN_create_instance(EngRendererInterface* this, Eng
     }
 }
 
-int32_t eng_RENDERER_BACKEND_VULKAN_get_device_suitability(VkPhysicalDevice device) {
-    VkPhysicalDeviceProperties deviceproperties;
-    vkGetPhysicalDeviceProperties(device, &deviceproperties);
-    //VkPhysicalDeviceFeatures devicefeatures;
-    //vkGetPhysicalDeviceFeatures(device, &devicefeatures);
+typedef struct EngData_RENDERER_BACKEND_VULKAN_queueFamilyIndices {
+    uint32_t graphics_family;
+    uint8_t has_graphics_family;
 
-    int score = 0;
+    uint8_t is_complete;
+} EngData_RENDERER_BACKEND_VULKAN_queueFamilyIndices;
 
-    if (deviceproperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
-        score += 64;
+EngData_RENDERER_BACKEND_VULKAN_queueFamilyIndices eng_RENDERER_BACKEND_VULKAN_find_queue_families(VkPhysicalDevice device) {
+    EngData_RENDERER_BACKEND_VULKAN_queueFamilyIndices indices = {0};
 
-    // todo: more checks and shit
+    uint32_t queuefamilycount = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &queuefamilycount, 0);
 
-    return score;
+    VkQueueFamilyProperties* queuefamilies = malloc(sizeof(VkQueueFamilyProperties) * queuefamilycount);
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &queuefamilycount, queuefamilies);
+
+    for (uint32_t i = 0; i < queuefamilycount; ++i) {
+        if (queuefamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+            indices.graphics_family = i;
+            indices.has_graphics_family = 1;
+        }
+
+        indices.is_complete = indices.has_graphics_family;
+
+        if (indices.is_complete)
+            break;
+    }
+
+    free(queuefamilies);
+
+    return indices;
+}
+
+uint8_t eng_RENDERER_BACKEND_VULKAN_is_device_suitable(VkPhysicalDevice device) {
+    EngData_RENDERER_BACKEND_VULKAN_queueFamilyIndices indices = eng_RENDERER_BACKEND_VULKAN_find_queue_families(device);
+
+    return indices.is_complete;
 }
 
 void eng_RENDERER_BACKEND_VULKAN_pick_physical_device(EngRendererInterface* this) {
@@ -87,25 +110,21 @@ void eng_RENDERER_BACKEND_VULKAN_pick_physical_device(EngRendererInterface* this
 
     vkback->physical_device = VK_NULL_HANDLE;
 
-    int32_t max_score = -1;
-    int32_t max_index = -1;
-
     for (uint32_t i = 0; i < devicecount; ++i) {
-        int32_t score = eng_RENDERER_BACKEND_VULKAN_get_device_suitability(devices[i]);
-        if (score > max_score) {
-            max_score = score;
-            max_index = i;
-        }
+        if (eng_RENDERER_BACKEND_VULKAN_is_device_suitable(devices[i]))
+            vkback->physical_device = devices[i];
     }
 
-    if (max_score < 0) {
+    if (vkback->physical_device == VK_NULL_HANDLE) {
         printf("failed to find a suitable gpu!\n");
         exit(1);
     }
 
-    vkback->physical_device = devices[max_index];
-
     free(devices);
+}
+
+void eng_RENDERER_BACKEND_VULKAN_create_logical_device(EngRendererInterface* this) {
+    (void)this;
 }
 
 /* INTERFACE FUNCS */
@@ -118,6 +137,7 @@ void eng_RENDERER_BACKEND_VULKAN_constr(EngRendererInterface* this, EngPlatformI
 
     eng_RENDERER_BACKEND_VULKAN_create_instance(this, platform);
     eng_RENDERER_BACKEND_VULKAN_pick_physical_device(this);
+    eng_RENDERER_BACKEND_VULKAN_create_logical_device(this);
 }
 
 void eng_RENDERER_BACKEND_VULKAN_destr(EngRendererInterface* this) {
