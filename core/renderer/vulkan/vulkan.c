@@ -293,6 +293,101 @@ void eng_RENDERER_BACKEND_VULKAN_create_surface(EngRendererInterface* this, EngP
     }
 }
 
+// weird ahh c pointer ordering magic that probably doesent even work how its supposed to
+VkSurfaceFormatKHR eng_RENDERER_BACKEND_VULKAN_choose_swap_surface_format(VkSurfaceFormatKHR* available_formats, uint32_t available_format_count) {
+    for (uint32_t i = 0; i < available_format_count; ++i) {
+        VkSurfaceFormatKHR availableformat = available_formats[i];
+        if (availableformat.format == VK_FORMAT_B8G8R8A8_SRGB && availableformat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+            return availableformat;
+        }
+    }
+
+    return available_formats[0];
+}
+
+VkPresentModeKHR eng_RENDERER_BACKEND_VULKAN_choose_swap_present_mode(VkPresentModeKHR* available_present_modes, uint32_t available_present_mode_count) {
+    for (uint32_t i = 0; i < available_present_mode_count; ++i) {
+        VkPresentModeKHR availablepresentmode = available_present_modes[i];
+        if (availablepresentmode == VK_PRESENT_MODE_MAILBOX_KHR)
+            return availablepresentmode;
+    }
+
+    return VK_PRESENT_MODE_FIFO_KHR;
+}
+
+VkExtent2D eng_RENDERER_BACKEND_VULKAN_choose_swap_extent(EngPlatformInterface* platform, VkSurfaceCapabilitiesKHR capabilities) {
+    if (capabilities.currentExtent.width == UINT32_MAX) {
+        int width, height;
+        platform->get_frame_size(platform, &width, &height);
+
+        VkExtent2D actualextent = {width, height};
+
+        // aaaaaaa
+        // should probably have a cmath.h
+        if (actualextent.width < capabilities.minImageExtent.width)
+            actualextent.width = capabilities.minImageExtent.width;
+        if (actualextent.width > capabilities.maxImageExtent.width)
+            actualextent.width = capabilities.maxImageExtent.width;
+        if (actualextent.height < capabilities.minImageExtent.height)
+            actualextent.height = capabilities.minImageExtent.height;
+        if (actualextent.height > capabilities.maxImageExtent.height)
+            actualextent.height = capabilities.maxImageExtent.height;
+
+        return actualextent;
+    }
+
+    return capabilities.currentExtent;
+}
+
+void eng_RENDERER_BACKEND_VULKAN_create_swapchain(EngRendererInterface* this, EngPlatformInterface* platform) {
+    EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
+
+    EngData_RENDERER_BACKEND_VULKAN_swapchainSupportDetails swapchainsupport = eng_RENDERER_BACKEND_VULKAN_query_swapchain_support(this, vkback->physical_device);
+
+    VkSurfaceFormatKHR surfaceformat = eng_RENDERER_BACKEND_VULKAN_choose_swap_surface_format(swapchainsupport.formats, swapchainsupport.format_count);
+    VkPresentModeKHR presentmode = eng_RENDERER_BACKEND_VULKAN_choose_swap_present_mode(swapchainsupport.present_modes, swapchainsupport.present_mode_count);
+    VkExtent2D extent = eng_RENDERER_BACKEND_VULKAN_choose_swap_extent(platform, swapchainsupport.capabilities);
+
+    uint32_t imagecount = swapchainsupport.capabilities.minImageCount + 1;
+
+    if (swapchainsupport.capabilities.maxImageCount > 0 && imagecount > swapchainsupport.capabilities.maxImageCount)
+        imagecount = swapchainsupport.capabilities.maxImageCount;
+
+    VkSwapchainCreateInfoKHR createinfo = {0};
+        createinfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+        createinfo.surface = vkback->surface;
+        createinfo.minImageCount = imagecount;
+        createinfo.imageFormat = surfaceformat.format;
+        createinfo.imageColorSpace = surfaceformat.colorSpace;
+        createinfo.imageExtent = extent;
+        createinfo.imageArrayLayers = 1;
+        createinfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+    EngData_RENDERER_BACKEND_VULKAN_queueFamilyIndices indices = eng_RENDERER_BACKEND_VULKAN_find_queue_families(this, vkback->physical_device);
+    uint32_t queuefamilyindices[] = {indices.graphics_family, indices.present_family};
+
+    if (indices.graphics_family != indices.present_family) {
+        createinfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+        createinfo.queueFamilyIndexCount = 2;
+        createinfo.pQueueFamilyIndices = queuefamilyindices;
+    } else {
+        createinfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        createinfo.queueFamilyIndexCount = 0;
+        createinfo.pQueueFamilyIndices = 0;
+    }
+
+    createinfo.preTransform = swapchainsupport.capabilities.currentTransform;
+    createinfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+    createinfo.presentMode = presentmode;
+    createinfo.clipped = VK_TRUE;
+    createinfo.oldSwapchain = VK_NULL_HANDLE;
+
+    if (vkCreateSwapchainKHR(vkback->device, &createinfo, 0, &vkback->swapchain) != VK_SUCCESS) {
+        printf("failed to create swapchain!\n");
+        exit(1);
+    }
+}
+
 /* INTERFACE FUNCS */
 
 void eng_RENDERER_BACKEND_VULKAN_constr(EngRendererInterface* this, EngPlatformInterface* platform) {
@@ -303,11 +398,13 @@ void eng_RENDERER_BACKEND_VULKAN_constr(EngRendererInterface* this, EngPlatformI
     eng_RENDERER_BACKEND_VULKAN_create_surface(this, platform);
     eng_RENDERER_BACKEND_VULKAN_pick_physical_device(this);
     eng_RENDERER_BACKEND_VULKAN_create_logical_device(this);
+    eng_RENDERER_BACKEND_VULKAN_create_swapchain(this, platform);
 }
 
 void eng_RENDERER_BACKEND_VULKAN_destr(EngRendererInterface* this) {
     EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
 
+    vkDestroySwapchainKHR(vkback->device, vkback->swapchain, 0);
     vkDestroySurfaceKHR(vkback->instance, vkback->surface, 0);
     vkDestroyDevice(vkback->device, 0);
     vkDestroyInstance(vkback->instance, 0);

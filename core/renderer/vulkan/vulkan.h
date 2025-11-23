@@ -16,6 +16,7 @@ typedef struct EngRendererInterface_RENDERER_BACKEND_VULKAN {
     VkQueue present_queue;
 
     VkSurfaceKHR surface;
+    VkSwapchainKHR swapchain;
 } EngRendererInterface_RENDERER_BACKEND_VULKAN;
 
 /* FUNCS */

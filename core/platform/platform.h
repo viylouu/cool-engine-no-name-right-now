@@ -43,6 +43,12 @@ struct EngPlatformInterface {
         EngPlatformInterface* this
         );
 
+    void (*get_frame_size)(
+        EngPlatformInterface* this,
+        int* width,
+        int* height
+        );
+
 // renderer specific shit
 
     uint8_t (*supports_vulkan)(

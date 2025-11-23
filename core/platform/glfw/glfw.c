@@ -88,6 +88,11 @@ void* eng_PLATFORM_BACKEND_GLFW_get_handle(EngPlatformInterface* this) {
     return 0;
 }
 
+void eng_PLATFORM_BACKEND_GLFW_get_frame_size(EngPlatformInterface* this, int* width, int* height) {
+    EngPlatformInterface_PLATFORM_BACKEND_GLFW* glfwback = this->backend_data;
+    glfwGetFramebufferSize(glfwback->window, width, height);
+}
+
 uint8_t eng_PLATFORM_BACKEND_GLFW_supports_vulkan(EngPlatformInterface* this) {
     (void)this;
     return glfwVulkanSupported();
@@ -106,6 +111,7 @@ EngPlatformInterface* eng_PLATFORM_BACKEND_GLFW_make_interface(void) {
     interface->poll = eng_PLATFORM_BACKEND_GLFW_poll;
     interface->present = eng_PLATFORM_BACKEND_GLFW_present;
     interface->get_handle = eng_PLATFORM_BACKEND_GLFW_get_handle;
+    interface->get_frame_size = eng_PLATFORM_BACKEND_GLFW_get_frame_size;
     interface->supports_vulkan = eng_PLATFORM_BACKEND_GLFW_supports_vulkan;
 
     return interface;
