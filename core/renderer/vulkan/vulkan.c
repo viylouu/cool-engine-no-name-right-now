@@ -142,12 +142,49 @@ uint8_t eng_RENDERER_BACKEND_VULKAN_check_device_extension_support(VkPhysicalDev
     return requiredcount == 0;
 }
 
+typedef struct EngData_RENDERER_BACKEND_VULKAN_swapchainSupportDetails {
+    VkSurfaceCapabilitiesKHR capabilities;
+    VkSurfaceFormatKHR* formats;
+    uint32_t format_count;
+    VkPresentModeKHR* present_modes;
+    uint32_t present_mode_count;
+} EngData_RENDERER_BACKEND_VULKAN_swapchainSupportDetails;
+
+EngData_RENDERER_BACKEND_VULKAN_swapchainSupportDetails eng_RENDERER_BACKEND_VULKAN_query_swapchain_support(EngRendererInterface* this, VkPhysicalDevice device) {
+    EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
+
+    EngData_RENDERER_BACKEND_VULKAN_swapchainSupportDetails details = {0};
+
+    vkGetPhysicalDeviceSurfaceFormatsKHR(device, vkback->surface, &details.format_count, 0);
+
+    details.formats = malloc(sizeof(VkSurfaceFormatKHR) * details.format_count);
+
+    if (details.format_count != 0)
+        vkGetPhysicalDeviceSurfaceFormatsKHR(device, vkback->surface, &details.format_count, details.formats);
+
+    vkGetPhysicalDeviceSurfacePresentModesKHR(device, vkback->surface, &details.present_mode_count, 0);
+
+    details.present_modes = malloc(sizeof(VkPresentModeKHR) * details.present_mode_count);
+
+    if (details.present_mode_count != 0)
+        vkGetPhysicalDeviceSurfacePresentModesKHR(device, vkback->surface, &details.present_mode_count, details.present_modes);
+
+    return details;
+}
+
+
 uint8_t eng_RENDERER_BACKEND_VULKAN_is_device_suitable(EngRendererInterface* this, VkPhysicalDevice device) {
     EngData_RENDERER_BACKEND_VULKAN_queueFamilyIndices indices = eng_RENDERER_BACKEND_VULKAN_find_queue_families(this, device);
 
     uint8_t extensions_supported = eng_RENDERER_BACKEND_VULKAN_check_device_extension_support(device);
 
-    return indices.is_complete && extensions_supported;
+    uint8_t swapchain_adequate = 0;
+    if (extensions_supported) {
+        EngData_RENDERER_BACKEND_VULKAN_swapchainSupportDetails swapchain_support = eng_RENDERER_BACKEND_VULKAN_query_swapchain_support(this, device);
+        swapchain_adequate = swapchain_support.format_count > 0 && swapchain_support.present_mode_count > 0;
+    }
+
+    return indices.is_complete && extensions_supported && swapchain_adequate;
 }
 
 void eng_RENDERER_BACKEND_VULKAN_pick_physical_device(EngRendererInterface* this) {
