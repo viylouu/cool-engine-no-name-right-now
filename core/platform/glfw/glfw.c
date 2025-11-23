@@ -18,9 +18,9 @@
 
 /* TYPES */
 
-struct EngPlatformInterface_BACKEND_GLFW {
+typedef struct EngPlatformInterface_BACKEND_GLFW {
     GLFWwindow* window;
-};
+} EngPlatformInterface_BACKEND_GLFW;
 
 /* INTERFACE FUNCS */
 
@@ -35,12 +35,17 @@ void eng_PLATFORM_BACKEND_GLFW_constr(EngPlatformInterface* this) {
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+
     glfwback->window = glfwCreateWindow(800,600,"title", 0,0);
     if (!glfwback->window) {
         printf("failed to create glfw window!\n");
         glfwTerminate();
         exit(1);
     }
+
+    this->width = 800;
+    this->height = 600;
 }
 
 void eng_PLATFORM_BACKEND_GLFW_destr(EngPlatformInterface* this) {
@@ -55,7 +60,7 @@ void eng_PLATFORM_BACKEND_GLFW_destr(EngPlatformInterface* this) {
     free(this);
 }
 
-int eng_PLATFORM_BACKEND_GLFW_is_running(EngPlatformInterface* this) {
+uint8_t eng_PLATFORM_BACKEND_GLFW_is_running(EngPlatformInterface* this) {
     EngPlatformInterface_BACKEND_GLFW* glfwback = this->backend_data;
     return !glfwWindowShouldClose(glfwback->window);
 }
@@ -89,7 +94,7 @@ void* eng_PLATFORM_BACKEND_GLFW_get_handle(EngPlatformInterface* this) {
     return 0;
 }
 
-int eng_PLATFORM_BACKEND_GLFW_supports_vulkan(EngPlatformInterface* this) {
+uint8_t eng_PLATFORM_BACKEND_GLFW_supports_vulkan(EngPlatformInterface* this) {
     (void)this;
     return glfwVulkanSupported();
 }
@@ -98,6 +103,8 @@ int eng_PLATFORM_BACKEND_GLFW_supports_vulkan(EngPlatformInterface* this) {
 
 EngPlatformInterface* eng_PLATFORM_BACKEND_GLFW_make_interface(void) {
     EngPlatformInterface* interface = malloc(sizeof(EngPlatformInterface));
+
+    interface->backend_api = ENG_PLATFORM_GLFW;
 
     interface->constr = eng_PLATFORM_BACKEND_GLFW_constr;
     interface->destr = eng_PLATFORM_BACKEND_GLFW_destr;

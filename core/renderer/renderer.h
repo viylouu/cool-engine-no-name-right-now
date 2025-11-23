@@ -11,6 +11,7 @@ typedef enum EngRendererBackend {
 typedef struct EngRendererInterface EngRendererInterface;
 struct EngRendererInterface {
     void* backend_data;
+    EngRendererBackend backend_api;
 
     void (*constr)(
         EngRendererInterface* this,

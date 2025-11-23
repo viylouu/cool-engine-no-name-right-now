@@ -11,6 +11,10 @@ typedef enum EngPlatformBackend {
 typedef struct EngPlatformInterface EngPlatformInterface;
 struct EngPlatformInterface {
     void* backend_data;
+    EngPlatformBackend backend_api;
+
+    uint32_t width;
+    uint32_t height;
 
     void (*constr)(
         EngPlatformInterface* this
@@ -20,7 +24,7 @@ struct EngPlatformInterface {
         EngPlatformInterface* this
         );
 
-    int (*is_running)(
+    uint8_t (*is_running)(
         EngPlatformInterface* this
         );
 
@@ -41,7 +45,7 @@ struct EngPlatformInterface {
 
 // renderer specific shit
 
-    int (*supports_vulkan)(
+    uint8_t (*supports_vulkan)(
         EngPlatformInterface* this
         );
 };
