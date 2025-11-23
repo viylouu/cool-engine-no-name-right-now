@@ -1,21 +1,21 @@
 #include "vulkan.h"
 
-// only for glfw exts
+// only for glfw helpers and shit
 #include <deps/GLFW/glfw3.h>
+#include <core/platform/glfw/glfw.h>
 
+#if _WIN32
+#define VK_USE_PLATFORM_WIN32_KHR
+#elif __linux__
+#define VK_USE_PLATFORM_WAYLAND_KHR
+// im not sure if i should have xcb or xlib, so ill just do both
+#define VK_USE_PLATFORM_XCB_KHR
+#define VK_USE_PLATFORM_XLIB_KHR
+#endif
 #include <deps/vulkan/vulkan.h>
 
 #include <stdlib.h>
 #include <stdio.h>
-
-/* TYPES */
-
-typedef struct EngRendererInterface_RENDERER_BACKEND_VULKAN {
-    VkInstance instance;
-    VkPhysicalDevice physical_device;
-    VkDevice device;
-    VkQueue graphics_queue;
-} EngRendererInterface_RENDERER_BACKEND_VULKAN;
 
 /* PRIVATE FUNCS */
 
@@ -45,6 +45,10 @@ void eng_RENDERER_BACKEND_VULKAN_create_instance(EngRendererInterface* this, Eng
 
         extensioncount = glfw_extensioncount;
         extensions = glfw_extensions;
+    } else {
+        // add the following to extensions:
+        //  VK_KHR_surface
+        //  ... some other shit idfk
     }
 
     createinfo.enabledExtensionCount = extensioncount;
@@ -60,10 +64,15 @@ typedef struct EngData_RENDERER_BACKEND_VULKAN_queueFamilyIndices {
     uint32_t graphics_family;
     uint8_t has_graphics_family;
 
+    uint32_t present_family;
+    uint8_t has_present_family;
+
     uint8_t is_complete;
 } EngData_RENDERER_BACKEND_VULKAN_queueFamilyIndices;
 
-EngData_RENDERER_BACKEND_VULKAN_queueFamilyIndices eng_RENDERER_BACKEND_VULKAN_find_queue_families(VkPhysicalDevice device) {
+EngData_RENDERER_BACKEND_VULKAN_queueFamilyIndices eng_RENDERER_BACKEND_VULKAN_find_queue_families(EngRendererInterface* this, VkPhysicalDevice device) {
+    EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
+
     EngData_RENDERER_BACKEND_VULKAN_queueFamilyIndices indices = {0};
 
     uint32_t queuefamilycount = 0;
@@ -78,7 +87,15 @@ EngData_RENDERER_BACKEND_VULKAN_queueFamilyIndices eng_RENDERER_BACKEND_VULKAN_f
             indices.has_graphics_family = 1;
         }
 
-        indices.is_complete = indices.has_graphics_family;
+        VkBool32 presentsupport = 0;
+        vkGetPhysicalDeviceSurfaceSupportKHR(device, i, vkback->surface, &presentsupport);
+
+        if (presentsupport) {
+            indices.present_family = i;
+            indices.has_present_family = 1;
+        }
+
+        indices.is_complete = indices.has_graphics_family && indices.has_present_family;
 
         if (indices.is_complete)
             break;
@@ -89,8 +106,8 @@ EngData_RENDERER_BACKEND_VULKAN_queueFamilyIndices eng_RENDERER_BACKEND_VULKAN_f
     return indices;
 }
 
-uint8_t eng_RENDERER_BACKEND_VULKAN_is_device_suitable(VkPhysicalDevice device) {
-    EngData_RENDERER_BACKEND_VULKAN_queueFamilyIndices indices = eng_RENDERER_BACKEND_VULKAN_find_queue_families(device);
+uint8_t eng_RENDERER_BACKEND_VULKAN_is_device_suitable(EngRendererInterface* this, VkPhysicalDevice device) {
+    EngData_RENDERER_BACKEND_VULKAN_queueFamilyIndices indices = eng_RENDERER_BACKEND_VULKAN_find_queue_families(this, device);
 
     return indices.is_complete;
 }
@@ -111,7 +128,7 @@ void eng_RENDERER_BACKEND_VULKAN_pick_physical_device(EngRendererInterface* this
     vkback->physical_device = VK_NULL_HANDLE;
 
     for (uint32_t i = 0; i < devicecount; ++i) {
-        if (eng_RENDERER_BACKEND_VULKAN_is_device_suitable(devices[i]))
+        if (eng_RENDERER_BACKEND_VULKAN_is_device_suitable(this, devices[i]))
             vkback->physical_device = devices[i];
     }
 
@@ -126,22 +143,44 @@ void eng_RENDERER_BACKEND_VULKAN_pick_physical_device(EngRendererInterface* this
 void eng_RENDERER_BACKEND_VULKAN_create_logical_device(EngRendererInterface* this) {
     EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
 
-    EngData_RENDERER_BACKEND_VULKAN_queueFamilyIndices indices = eng_RENDERER_BACKEND_VULKAN_find_queue_families(vkback->physical_device);
+    EngData_RENDERER_BACKEND_VULKAN_queueFamilyIndices indices = eng_RENDERER_BACKEND_VULKAN_find_queue_families(this, vkback->physical_device);
 
-    VkDeviceQueueCreateInfo queuecreateinfo = {0};
-        queuecreateinfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-        queuecreateinfo.queueFamilyIndex = indices.graphics_family;
-        queuecreateinfo.queueCount = 1;
+    uint32_t uniquequeuefamilies_TEMP[2] = { indices.graphics_family, indices.present_family };
+    uint32_t uniquequeuefamilies[2];
+    uint32_t unique_count = 0;
+
+    for (uint32_t i = 0; i < 2; ++i) {
+        uint32_t f = uniquequeuefamilies_TEMP[i];
+
+        int found = 0;
+        for (uint32_t j = 0; j < unique_count; ++j)
+            if (uniquequeuefamilies[j] == f) {
+                found = 1;
+                break;
+            }
+
+        if (!found)
+            uniquequeuefamilies[unique_count++] = f;
+    }
+
+    VkDeviceQueueCreateInfo* queuecreateinfos = malloc(sizeof(VkDeviceQueueCreateInfo) * unique_count);
 
     float queuepriority = 1.f;
-    queuecreateinfo.pQueuePriorities = &queuepriority;
+    for (uint32_t i = 0; i < unique_count; ++i) {
+        VkDeviceQueueCreateInfo queuecreateinfo = {0};
+            queuecreateinfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+            queuecreateinfo.queueFamilyIndex = uniquequeuefamilies[i];
+            queuecreateinfo.queueCount = 1;
+            queuecreateinfo.pQueuePriorities = &queuepriority;
+        queuecreateinfos[i] = queuecreateinfo;
+    }
 
     VkPhysicalDeviceFeatures devicefeatures = {0};
 
     VkDeviceCreateInfo createinfo = {0};
         createinfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-        createinfo.pQueueCreateInfos = &queuecreateinfo;
-        createinfo.queueCreateInfoCount = 1;
+        createinfo.pQueueCreateInfos = queuecreateinfos;
+        createinfo.queueCreateInfoCount = unique_count;
         createinfo.pEnabledFeatures = &devicefeatures;
 
     createinfo.enabledExtensionCount = 0;
@@ -159,6 +198,24 @@ void eng_RENDERER_BACKEND_VULKAN_create_logical_device(EngRendererInterface* thi
     }
 
     vkGetDeviceQueue(vkback->device, indices.graphics_family, 0, &vkback->graphics_queue);
+    vkGetDeviceQueue(vkback->device, indices.present_family, 0, &vkback->present_queue);
+
+    free(queuecreateinfos);
+}
+
+void eng_RENDERER_BACKEND_VULKAN_create_surface(EngRendererInterface* this, EngPlatformInterface* platform) {
+    EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
+
+    if (platform->backend_api == ENG_PLATFORM_GLFW) {
+        EngPlatformInterface_PLATFORM_BACKEND_GLFW* glfwback = platform->backend_data;
+        if (glfwCreateWindowSurface(vkback->instance, glfwback->window, 0, &vkback->surface) != VK_SUCCESS) {
+            printf("failed to create window surface!\n");
+            exit(1);
+        }
+    } else {
+        // todo: add the stuff thats talked about but more platform specific its linked here: https://vulkan-tutorial.com/en/Drawing_a_triangle/Presentation/Window_surface
+        // im too lazy to add this in right now, and also it wouldnt do anything/be testable atm since there is only glfw platform (as of Nov 23)
+    }
 }
 
 /* INTERFACE FUNCS */
@@ -168,6 +225,7 @@ void eng_RENDERER_BACKEND_VULKAN_constr(EngRendererInterface* this, EngPlatformI
     this->backend_data = vkback;
 
     eng_RENDERER_BACKEND_VULKAN_create_instance(this, platform);
+    eng_RENDERER_BACKEND_VULKAN_create_surface(this, platform);
     eng_RENDERER_BACKEND_VULKAN_pick_physical_device(this);
     eng_RENDERER_BACKEND_VULKAN_create_logical_device(this);
 }
@@ -175,6 +233,7 @@ void eng_RENDERER_BACKEND_VULKAN_constr(EngRendererInterface* this, EngPlatformI
 void eng_RENDERER_BACKEND_VULKAN_destr(EngRendererInterface* this) {
     EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
 
+    vkDestroySurfaceKHR(vkback->instance, vkback->surface, 0);
     vkDestroyDevice(vkback->device, 0);
     vkDestroyInstance(vkback->instance, 0);
 

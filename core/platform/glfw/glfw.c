@@ -16,16 +16,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-/* TYPES */
-
-typedef struct EngPlatformInterface_BACKEND_GLFW {
-    GLFWwindow* window;
-} EngPlatformInterface_BACKEND_GLFW;
-
 /* INTERFACE FUNCS */
 
 void eng_PLATFORM_BACKEND_GLFW_constr(EngPlatformInterface* this) {
-    EngPlatformInterface_BACKEND_GLFW* glfwback = malloc(sizeof(EngPlatformInterface_BACKEND_GLFW));
+    EngPlatformInterface_PLATFORM_BACKEND_GLFW* glfwback = malloc(sizeof(EngPlatformInterface_PLATFORM_BACKEND_GLFW));
     this->backend_data = glfwback;
 
     if (!glfwInit()) {
@@ -49,7 +43,7 @@ void eng_PLATFORM_BACKEND_GLFW_constr(EngPlatformInterface* this) {
 }
 
 void eng_PLATFORM_BACKEND_GLFW_destr(EngPlatformInterface* this) {
-    EngPlatformInterface_BACKEND_GLFW* glfwback = this->backend_data;
+    EngPlatformInterface_PLATFORM_BACKEND_GLFW* glfwback = this->backend_data;
 
     this->present(this); // fix for segfault
 
@@ -61,7 +55,7 @@ void eng_PLATFORM_BACKEND_GLFW_destr(EngPlatformInterface* this) {
 }
 
 uint8_t eng_PLATFORM_BACKEND_GLFW_is_running(EngPlatformInterface* this) {
-    EngPlatformInterface_BACKEND_GLFW* glfwback = this->backend_data;
+    EngPlatformInterface_PLATFORM_BACKEND_GLFW* glfwback = this->backend_data;
     return !glfwWindowShouldClose(glfwback->window);
 }
 
@@ -71,12 +65,12 @@ void eng_PLATFORM_BACKEND_GLFW_poll(EngPlatformInterface* this) {
 }
 
 void eng_PLATFORM_BACKEND_GLFW_present(EngPlatformInterface* this) {
-    EngPlatformInterface_BACKEND_GLFW* glfwback = this->backend_data;
+    EngPlatformInterface_PLATFORM_BACKEND_GLFW* glfwback = this->backend_data;
     glfwSwapBuffers(glfwback->window);
 }
 
 void* eng_PLATFORM_BACKEND_GLFW_get_handle(EngPlatformInterface* this) {
-    EngPlatformInterface_BACKEND_GLFW* glfwback = this->backend_data;
+    EngPlatformInterface_PLATFORM_BACKEND_GLFW* glfwback = this->backend_data;
 
 #if _WIN32
     return (void*)glfwGetWin32Window(glfwback->window);
