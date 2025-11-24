@@ -559,6 +559,41 @@ void eng_RENDERER_BACKEND_VULKAN_create_graphics_pipeline(EngRendererInterface* 
     vkDestroyShaderModule(vkback->device, vert_module, 0);
 }
 
+void eng_RENDERER_BACKEND_VULKAN_create_render_pass(EngRendererInterface* this) {
+    EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
+
+    VkAttachmentDescription colorattachment = {0};
+        colorattachment.format = vkback->swapchain_image_format;
+        colorattachment.samples = VK_SAMPLE_COUNT_1_BIT;
+        colorattachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        colorattachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        colorattachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        colorattachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        colorattachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        colorattachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+    VkAttachmentReference colorattachmentref = {0};
+        colorattachmentref.attachment = 0;
+        colorattachmentref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    VkSubpassDescription subpass = {0};
+        subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+        subpass.colorAttachmentCount = 1;
+        subpass.pColorAttachments = &colorattachmentref;
+
+    VkRenderPassCreateInfo renderpassinfo = {0};
+        renderpassinfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+        renderpassinfo.attachmentCount = 1;
+        renderpassinfo.pAttachments = &colorattachment;
+        renderpassinfo.subpassCount = 1;
+        renderpassinfo.pSubpasses = &subpass;
+
+    if (vkCreateRenderPass(vkback->device, &renderpassinfo, 0, &vkback->render_pass) != VK_SUCCESS) {
+        printf("failed to create render pass!\n");
+        exit(1);
+    }
+}
+
 /* INTERFACE FUNCS */
 
 void eng_RENDERER_BACKEND_VULKAN_constr(EngRendererInterface* this, EngPlatformInterface* platform) {
@@ -571,6 +606,7 @@ void eng_RENDERER_BACKEND_VULKAN_constr(EngRendererInterface* this, EngPlatformI
     eng_RENDERER_BACKEND_VULKAN_create_logical_device(this);
     eng_RENDERER_BACKEND_VULKAN_create_swapchain(this, platform);
     eng_RENDERER_BACKEND_VULKAN_create_image_views(this);
+    eng_RENDERER_BACKEND_VULKAN_create_render_pass(this);
     eng_RENDERER_BACKEND_VULKAN_create_graphics_pipeline(this);
 }
 
@@ -578,6 +614,7 @@ void eng_RENDERER_BACKEND_VULKAN_destr(EngRendererInterface* this) {
     EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
 
     vkDestroyPipelineLayout(vkback->device, vkback->pipeline_layout, 0);
+    vkDestroyRenderPass(vkback->device, vkback->render_pass, 0);
 
     for (uint32_t i = 0; i < vkback->swapchain_image_view_count; ++i)
         vkDestroyImageView(vkback->device, vkback->swapchain_image_views[i], 0);

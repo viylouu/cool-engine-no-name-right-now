@@ -25,6 +25,7 @@ typedef struct EngRendererInterface_RENDERER_BACKEND_VULKAN {
     VkImageView* swapchain_image_views;
     uint32_t swapchain_image_view_count;
 
+    VkRenderPass render_pass;
     VkPipelineLayout pipeline_layout;
 } EngRendererInterface_RENDERER_BACKEND_VULKAN;
 
