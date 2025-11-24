@@ -388,11 +388,41 @@ void eng_RENDERER_BACKEND_VULKAN_create_swapchain(EngRendererInterface* this, En
     }
 
     vkGetSwapchainImagesKHR(vkback->device, vkback->swapchain, &imagecount, 0);
+    vkback->swapchain_image_count = imagecount;
     vkback->swapchain_images = malloc(sizeof(VkImage) * imagecount);
     vkGetSwapchainImagesKHR(vkback->device, vkback->swapchain, &imagecount, vkback->swapchain_images);
 
     vkback->swapchain_image_format = surfaceformat.format;
     vkback->swapchain_extent = extent;
+}
+
+void eng_RENDERER_BACKEND_VULKAN_create_image_views(EngRendererInterface* this) {
+    EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
+
+    vkback->swapchain_image_view_count = vkback->swapchain_image_count;
+    vkback->swapchain_image_views = malloc(sizeof(VkImageView) * vkback->swapchain_image_view_count);
+
+    for (uint32_t i = 0; i < vkback->swapchain_image_view_count; ++i) {
+        VkImageViewCreateInfo createinfo = {0};
+            createinfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+            createinfo.image = vkback->swapchain_images[i];
+            createinfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+            createinfo.format = vkback->swapchain_image_format;
+            createinfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+            createinfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+            createinfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+            createinfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+            createinfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            createinfo.subresourceRange.baseMipLevel = 0;
+            createinfo.subresourceRange.levelCount = 1;
+            createinfo.subresourceRange.baseArrayLayer = 0;
+            createinfo.subresourceRange.layerCount = 1;
+
+        if (vkCreateImageView(vkback->device, &createinfo, 0, &vkback->swapchain_image_views[i]) != VK_SUCCESS) {
+            printf("failed to create image views!\n");
+            exit(1);
+        }
+    }
 }
 
 /* INTERFACE FUNCS */
@@ -406,15 +436,22 @@ void eng_RENDERER_BACKEND_VULKAN_constr(EngRendererInterface* this, EngPlatformI
     eng_RENDERER_BACKEND_VULKAN_pick_physical_device(this);
     eng_RENDERER_BACKEND_VULKAN_create_logical_device(this);
     eng_RENDERER_BACKEND_VULKAN_create_swapchain(this, platform);
+    eng_RENDERER_BACKEND_VULKAN_create_image_views(this);
 }
 
 void eng_RENDERER_BACKEND_VULKAN_destr(EngRendererInterface* this) {
     EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
 
+    for (uint32_t i = 0; i < vkback->swapchain_image_view_count; ++i)
+        vkDestroyImageView(vkback->device, vkback->swapchain_image_views[i], 0);
+
     vkDestroySwapchainKHR(vkback->device, vkback->swapchain, 0);
     vkDestroySurfaceKHR(vkback->instance, vkback->surface, 0);
     vkDestroyDevice(vkback->device, 0);
     vkDestroyInstance(vkback->instance, 0);
+
+    free(vkback->swapchain_image_views);
+    free(vkback->swapchain_images);
 
     free(vkback);
     free(this);
