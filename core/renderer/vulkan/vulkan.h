@@ -27,6 +27,7 @@ typedef struct EngRendererInterface_RENDERER_BACKEND_VULKAN {
 
     VkRenderPass render_pass;
     VkPipelineLayout pipeline_layout;
+    VkPipeline graphics_pipeline;
 } EngRendererInterface_RENDERER_BACKEND_VULKAN;
 
 /* FUNCS */

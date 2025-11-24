@@ -469,6 +469,16 @@ void eng_RENDERER_BACKEND_VULKAN_create_graphics_pipeline(EngRendererInterface* 
 
     VkPipelineShaderStageCreateInfo shaderstages[] = {vert_shaderstageinfo, frag_shaderstageinfo};
 
+    VkDynamicState dynamicstates[] = {
+        VK_DYNAMIC_STATE_VIEWPORT,
+        VK_DYNAMIC_STATE_SCISSOR
+    };
+
+    VkPipelineDynamicStateCreateInfo dynamicstate = {0};
+        dynamicstate.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+        dynamicstate.dynamicStateCount = sizeof(dynamicstates) / sizeof(dynamicstates[0]);
+        dynamicstate.pDynamicStates = dynamicstates;
+
     VkPipelineVertexInputStateCreateInfo vertexinputinfo = {0};
         vertexinputinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
         vertexinputinfo.vertexBindingDescriptionCount = 0;
@@ -555,6 +565,29 @@ void eng_RENDERER_BACKEND_VULKAN_create_graphics_pipeline(EngRendererInterface* 
         exit(1);
     }
 
+    VkGraphicsPipelineCreateInfo pipelineinfo = {0};
+        pipelineinfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+        pipelineinfo.stageCount = 2;
+        pipelineinfo.pStages = shaderstages;
+        pipelineinfo.pVertexInputState = &vertexinputinfo;
+        pipelineinfo.pInputAssemblyState = &inputassembly;
+        pipelineinfo.pViewportState = &viewportstate;
+        pipelineinfo.pRasterizationState = &rasterizer;
+        pipelineinfo.pMultisampleState = &multisampling;
+        pipelineinfo.pDepthStencilState = 0;
+        pipelineinfo.pColorBlendState = &colorblending;
+        pipelineinfo.pDynamicState = &dynamicstate;
+        pipelineinfo.layout = vkback->pipeline_layout;
+        pipelineinfo.renderPass = vkback->render_pass;
+        pipelineinfo.subpass = 0;
+        pipelineinfo.basePipelineHandle = VK_NULL_HANDLE;
+        pipelineinfo.basePipelineIndex = -1;
+
+    if (vkCreateGraphicsPipelines(vkback->device, VK_NULL_HANDLE, 1, &pipelineinfo, 0, &vkback->graphics_pipeline) != VK_SUCCESS) {
+        printf("failed to create graphics pipeline!\n");
+        exit(1);
+    }
+
     vkDestroyShaderModule(vkback->device, frag_module, 0);
     vkDestroyShaderModule(vkback->device, vert_module, 0);
 }
@@ -613,6 +646,7 @@ void eng_RENDERER_BACKEND_VULKAN_constr(EngRendererInterface* this, EngPlatformI
 void eng_RENDERER_BACKEND_VULKAN_destr(EngRendererInterface* this) {
     EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
 
+    vkDestroyPipeline(vkback->device, vkback->graphics_pipeline, 0);
     vkDestroyPipelineLayout(vkback->device, vkback->pipeline_layout, 0);
     vkDestroyRenderPass(vkback->device, vkback->render_pass, 0);
 
