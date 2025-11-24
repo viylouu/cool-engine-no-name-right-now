@@ -28,8 +28,9 @@ typedef struct EngRendererInterface_RENDERER_BACKEND_VULKAN {
     uint32_t swapchain_framebuffer_count;
 
     VkRenderPass render_pass;
-    VkPipelineLayout pipeline_layout;
-    VkPipeline graphics_pipeline;
+
+    //VkPipelineLayout pipeline_layout;
+    //VkPipeline graphics_pipeline;
 
     VkCommandPool command_pool;
 

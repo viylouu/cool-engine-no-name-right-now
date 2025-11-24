@@ -454,154 +454,6 @@ VkShaderModule eng_RENDERER_BACKEND_VULKAN_create_shader_module(EngRendererInter
     return shadermodule;
 }
 
-void eng_RENDERER_BACKEND_VULKAN_create_graphics_pipeline(EngRendererInterface* this) {
-    EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
-
-    size_t vert_size = 0;
-    size_t frag_size = 0;
-    char* vert = engLoadDataFile("data/eng/shaders/vulkan/tri.vert.spv", &vert_size);
-    char* frag = engLoadDataFile("data/eng/shaders/vulkan/tri.frag.spv", &frag_size);
-
-    VkShaderModule vert_module = eng_RENDERER_BACKEND_VULKAN_create_shader_module(this, vert, vert_size);
-    VkShaderModule frag_module = eng_RENDERER_BACKEND_VULKAN_create_shader_module(this, frag, frag_size);
-
-    VkPipelineShaderStageCreateInfo vert_shaderstageinfo = {0};
-        vert_shaderstageinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-        vert_shaderstageinfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-        vert_shaderstageinfo.module = vert_module;
-        vert_shaderstageinfo.pName = "main";
-
-    VkPipelineShaderStageCreateInfo frag_shaderstageinfo = {0};
-        frag_shaderstageinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-        frag_shaderstageinfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-        frag_shaderstageinfo.module = frag_module;
-        frag_shaderstageinfo.pName = "main";
-
-    VkPipelineShaderStageCreateInfo shaderstages[] = {vert_shaderstageinfo, frag_shaderstageinfo};
-
-    VkDynamicState dynamicstates[] = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
-    };
-
-    VkPipelineDynamicStateCreateInfo dynamicstate = {0};
-        dynamicstate.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-        dynamicstate.dynamicStateCount = sizeof(dynamicstates) / sizeof(dynamicstates[0]);
-        dynamicstate.pDynamicStates = dynamicstates;
-
-    VkPipelineVertexInputStateCreateInfo vertexinputinfo = {0};
-        vertexinputinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-        vertexinputinfo.vertexBindingDescriptionCount = 0;
-        vertexinputinfo.pVertexBindingDescriptions = 0;
-        vertexinputinfo.vertexAttributeDescriptionCount = 0;
-        vertexinputinfo.pVertexAttributeDescriptions = 0;
-
-    VkPipelineInputAssemblyStateCreateInfo inputassembly = {0};
-        inputassembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-        inputassembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-        inputassembly.primitiveRestartEnable = VK_FALSE;
-
-    VkViewport viewport = {0};
-        viewport.x = 0;
-        viewport.y = 0;
-        viewport.width = vkback->swapchain_extent.width;
-        viewport.height = vkback->swapchain_extent.height;
-        viewport.minDepth = 0;
-        viewport.maxDepth = 1;
-
-    VkRect2D scissor = {0};
-        scissor.offset = (VkOffset2D){0,0};
-        scissor.extent = vkback->swapchain_extent;
-
-    VkPipelineViewportStateCreateInfo viewportstate = {0};
-        viewportstate.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-        viewportstate.viewportCount = 1;
-        viewportstate.pViewports = &viewport;
-        viewportstate.scissorCount = 1;
-        viewportstate.pScissors = &scissor;
-
-    VkPipelineRasterizationStateCreateInfo rasterizer = {0};
-        rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-        rasterizer.depthClampEnable = VK_FALSE;
-        rasterizer.rasterizerDiscardEnable = VK_FALSE;
-        rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
-        rasterizer.lineWidth = 1;
-        rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-        rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
-        rasterizer.depthBiasEnable = VK_FALSE;
-        rasterizer.depthBiasConstantFactor = 0;
-        rasterizer.depthBiasClamp = 0;
-        rasterizer.depthBiasSlopeFactor = 0;
-
-    VkPipelineMultisampleStateCreateInfo multisampling = {0};
-        multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-        multisampling.sampleShadingEnable = VK_FALSE;
-        multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-        multisampling.minSampleShading = 1;
-        multisampling.pSampleMask = 0;
-        multisampling.alphaToCoverageEnable = VK_FALSE;
-        multisampling.alphaToOneEnable = VK_FALSE;
-
-    VkPipelineColorBlendAttachmentState colorblendattachment = {0};
-        colorblendattachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT| VK_COLOR_COMPONENT_A_BIT;
-        colorblendattachment.blendEnable = VK_FALSE;
-        colorblendattachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
-        colorblendattachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
-        colorblendattachment.colorBlendOp = VK_BLEND_OP_ADD;
-        colorblendattachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-        colorblendattachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-        colorblendattachment.alphaBlendOp = VK_BLEND_OP_ADD;
-
-    VkPipelineColorBlendStateCreateInfo colorblending = {0};
-        colorblending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-        colorblending.logicOpEnable = VK_FALSE;
-        colorblending.logicOp = VK_LOGIC_OP_COPY;
-        colorblending.attachmentCount = 1;
-        colorblending.pAttachments = &colorblendattachment;
-        colorblending.blendConstants[0] = 0;
-        colorblending.blendConstants[1] = 0;
-        colorblending.blendConstants[2] = 0;
-        colorblending.blendConstants[3] = 0;
-
-    VkPipelineLayoutCreateInfo pipelinelayoutinfo = {0};
-        pipelinelayoutinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        pipelinelayoutinfo.setLayoutCount = 0;
-        pipelinelayoutinfo.pSetLayouts = 0;
-        pipelinelayoutinfo.pushConstantRangeCount = 0;
-        pipelinelayoutinfo.pPushConstantRanges = 0;
-
-    if (vkCreatePipelineLayout(vkback->device, &pipelinelayoutinfo, 0, &vkback->pipeline_layout) != VK_SUCCESS) {
-        printf("failed to create pipeline layout!\n");
-        exit(1);
-    }
-
-    VkGraphicsPipelineCreateInfo pipelineinfo = {0};
-        pipelineinfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-        pipelineinfo.stageCount = 2;
-        pipelineinfo.pStages = shaderstages;
-        pipelineinfo.pVertexInputState = &vertexinputinfo;
-        pipelineinfo.pInputAssemblyState = &inputassembly;
-        pipelineinfo.pViewportState = &viewportstate;
-        pipelineinfo.pRasterizationState = &rasterizer;
-        pipelineinfo.pMultisampleState = &multisampling;
-        pipelineinfo.pDepthStencilState = 0;
-        pipelineinfo.pColorBlendState = &colorblending;
-        pipelineinfo.pDynamicState = &dynamicstate;
-        pipelineinfo.layout = vkback->pipeline_layout;
-        pipelineinfo.renderPass = vkback->render_pass;
-        pipelineinfo.subpass = 0;
-        pipelineinfo.basePipelineHandle = VK_NULL_HANDLE;
-        pipelineinfo.basePipelineIndex = -1;
-
-    if (vkCreateGraphicsPipelines(vkback->device, VK_NULL_HANDLE, 1, &pipelineinfo, 0, &vkback->graphics_pipeline) != VK_SUCCESS) {
-        printf("failed to create graphics pipeline!\n");
-        exit(1);
-    }
-
-    vkDestroyShaderModule(vkback->device, frag_module, 0);
-    vkDestroyShaderModule(vkback->device, vert_module, 0);
-}
-
 void eng_RENDERER_BACKEND_VULKAN_create_render_pass(EngRendererInterface* this) {
     EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
 
@@ -709,31 +561,6 @@ void eng_RENDERER_BACKEND_VULKAN_create_command_buffers(EngRendererInterface* th
     }
 }
 
-void eng_RENDERER_BACKEND_VULKAN_record_command_buffer(EngRendererInterface* this, VkCommandBuffer command_buffer, uint32_t image_index) {
-    EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
-    
-    // ACTUALLY DRAW STUFF
-    // NOTE: split this out later into individual stuff for engine to call
-
-    vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vkback->graphics_pipeline);
-
-    VkViewport viewport = {0};
-        viewport.x = 0;
-        viewport.y = 0;
-        viewport.width = vkback->swapchain_extent.width;
-        viewport.height = vkback->swapchain_extent.height;
-        viewport.minDepth = 0;
-        viewport.maxDepth = 1;
-    vkCmdSetViewport(command_buffer, 0,1, &viewport);
-
-    VkRect2D scissor = {0};
-        scissor.offset = (VkOffset2D){0,0};
-        scissor.extent = vkback->swapchain_extent;
-    vkCmdSetScissor(command_buffer, 0,1, &scissor);
-
-    vkCmdDraw(command_buffer, 6,1, 0,0);
-}
-
 void eng_RENDERER_BACKEND_VULKAN_create_sync_objects(EngRendererInterface* this) {
     EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
 
@@ -813,7 +640,7 @@ void eng_RENDERER_BACKEND_VULKAN_constr(EngRendererInterface* this, EngPlatformI
     eng_RENDERER_BACKEND_VULKAN_create_swapchain(this, platform);
     eng_RENDERER_BACKEND_VULKAN_create_image_views(this);
     eng_RENDERER_BACKEND_VULKAN_create_render_pass(this);
-    eng_RENDERER_BACKEND_VULKAN_create_graphics_pipeline(this);
+    //eng_RENDERER_BACKEND_VULKAN_create_graphics_pipeline(this);
     eng_RENDERER_BACKEND_VULKAN_create_framebuffers(this);
     eng_RENDERER_BACKEND_VULKAN_create_command_pool(this);
     eng_RENDERER_BACKEND_VULKAN_create_command_buffers(this);
@@ -835,8 +662,6 @@ void eng_RENDERER_BACKEND_VULKAN_destr(EngRendererInterface* this) {
 
     vkDestroyCommandPool(vkback->device, vkback->command_pool, 0);
 
-    vkDestroyPipeline(vkback->device, vkback->graphics_pipeline, 0);
-    vkDestroyPipelineLayout(vkback->device, vkback->pipeline_layout, 0);
     vkDestroyRenderPass(vkback->device, vkback->render_pass, 0);
 
     vkDestroySurfaceKHR(vkback->instance, vkback->surface, 0);
@@ -958,6 +783,226 @@ void eng_RENDERER_BACKEND_VULKAN_send(EngRendererInterface* this, EngPlatformInt
     vkback->current_frame = (vkback->current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
+typedef struct EngShader_RENDERER_BACKEND_VULKAN {
+    VkPipeline pipeline;
+    VkPipelineLayout pipeline_layout;
+} EngShader_RENDERER_BACKEND_VULKAN;
+
+// rebranded to be "load shader"
+EngShader* eng_RENDERER_BACKEND_VULKAN_load_shader(EngRendererInterface* this, const char* vert_path, const char* frag_path) {
+    EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
+
+    EngShader* shader = malloc(sizeof(EngShader));
+    EngShader_RENDERER_BACKEND_VULKAN* vkshader = malloc(sizeof(EngShader_RENDERER_BACKEND_VULKAN));
+    shader->backend_data = vkshader;
+
+    size_t vert_size = 0;
+    size_t frag_size = 0;
+    char* vert = engLoadDataFile(vert_path, &vert_size);
+    char* frag = engLoadDataFile(frag_path, &frag_size);
+
+    VkShaderModule vert_module = eng_RENDERER_BACKEND_VULKAN_create_shader_module(this, vert, vert_size);
+    VkShaderModule frag_module = eng_RENDERER_BACKEND_VULKAN_create_shader_module(this, frag, frag_size);
+
+    VkPipelineShaderStageCreateInfo vert_shaderstageinfo = {0};
+        vert_shaderstageinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        vert_shaderstageinfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+        vert_shaderstageinfo.module = vert_module;
+        vert_shaderstageinfo.pName = "main";
+
+    VkPipelineShaderStageCreateInfo frag_shaderstageinfo = {0};
+        frag_shaderstageinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        frag_shaderstageinfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+        frag_shaderstageinfo.module = frag_module;
+        frag_shaderstageinfo.pName = "main";
+
+    VkPipelineShaderStageCreateInfo shaderstages[] = {vert_shaderstageinfo, frag_shaderstageinfo};
+
+    VkDynamicState dynamicstates[] = {
+        VK_DYNAMIC_STATE_VIEWPORT,
+        VK_DYNAMIC_STATE_SCISSOR
+    };
+
+    VkPipelineDynamicStateCreateInfo dynamicstate = {0};
+        dynamicstate.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+        dynamicstate.dynamicStateCount = sizeof(dynamicstates) / sizeof(dynamicstates[0]);
+        dynamicstate.pDynamicStates = dynamicstates;
+
+    VkPipelineVertexInputStateCreateInfo vertexinputinfo = {0};
+        vertexinputinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+        vertexinputinfo.vertexBindingDescriptionCount = 0;
+        vertexinputinfo.pVertexBindingDescriptions = 0;
+        vertexinputinfo.vertexAttributeDescriptionCount = 0;
+        vertexinputinfo.pVertexAttributeDescriptions = 0;
+
+    VkPipelineInputAssemblyStateCreateInfo inputassembly = {0};
+        inputassembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+        inputassembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+        inputassembly.primitiveRestartEnable = VK_FALSE;
+
+    VkViewport viewport = {0};
+        viewport.x = 0;
+        viewport.y = 0;
+        viewport.width = vkback->swapchain_extent.width;
+        viewport.height = vkback->swapchain_extent.height;
+        viewport.minDepth = 0;
+        viewport.maxDepth = 1;
+
+    VkRect2D scissor = {0};
+        scissor.offset = (VkOffset2D){0,0};
+        scissor.extent = vkback->swapchain_extent;
+
+    VkPipelineViewportStateCreateInfo viewportstate = {0};
+        viewportstate.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+        viewportstate.viewportCount = 1;
+        viewportstate.pViewports = &viewport;
+        viewportstate.scissorCount = 1;
+        viewportstate.pScissors = &scissor;
+
+    VkPipelineRasterizationStateCreateInfo rasterizer = {0};
+        rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+        rasterizer.depthClampEnable = VK_FALSE;
+        rasterizer.rasterizerDiscardEnable = VK_FALSE;
+        rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
+        rasterizer.lineWidth = 1;
+        rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+        rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+        rasterizer.depthBiasEnable = VK_FALSE;
+        rasterizer.depthBiasConstantFactor = 0;
+        rasterizer.depthBiasClamp = 0;
+        rasterizer.depthBiasSlopeFactor = 0;
+
+    VkPipelineMultisampleStateCreateInfo multisampling = {0};
+        multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+        multisampling.sampleShadingEnable = VK_FALSE;
+        multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+        multisampling.minSampleShading = 1;
+        multisampling.pSampleMask = 0;
+        multisampling.alphaToCoverageEnable = VK_FALSE;
+        multisampling.alphaToOneEnable = VK_FALSE;
+
+    VkPipelineColorBlendAttachmentState colorblendattachment = {0};
+        colorblendattachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT| VK_COLOR_COMPONENT_A_BIT;
+        colorblendattachment.blendEnable = VK_FALSE;
+        colorblendattachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+        colorblendattachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+        colorblendattachment.colorBlendOp = VK_BLEND_OP_ADD;
+        colorblendattachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+        colorblendattachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+        colorblendattachment.alphaBlendOp = VK_BLEND_OP_ADD;
+
+    VkPipelineColorBlendStateCreateInfo colorblending = {0};
+        colorblending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+        colorblending.logicOpEnable = VK_FALSE;
+        colorblending.logicOp = VK_LOGIC_OP_COPY;
+        colorblending.attachmentCount = 1;
+        colorblending.pAttachments = &colorblendattachment;
+        colorblending.blendConstants[0] = 0;
+        colorblending.blendConstants[1] = 0;
+        colorblending.blendConstants[2] = 0;
+        colorblending.blendConstants[3] = 0;
+
+    VkPipelineLayoutCreateInfo pipelinelayoutinfo = {0};
+        pipelinelayoutinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+        pipelinelayoutinfo.setLayoutCount = 0;
+        pipelinelayoutinfo.pSetLayouts = 0;
+        pipelinelayoutinfo.pushConstantRangeCount = 0;
+        pipelinelayoutinfo.pPushConstantRanges = 0;
+
+    if (vkCreatePipelineLayout(vkback->device, &pipelinelayoutinfo, 0, &vkshader->pipeline_layout) != VK_SUCCESS) {
+        printf("failed to create pipeline layout!\n");
+        exit(1);
+    }
+
+    VkGraphicsPipelineCreateInfo pipelineinfo = {0};
+        pipelineinfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+        pipelineinfo.stageCount = 2;
+        pipelineinfo.pStages = shaderstages;
+        pipelineinfo.pVertexInputState = &vertexinputinfo;
+        pipelineinfo.pInputAssemblyState = &inputassembly;
+        pipelineinfo.pViewportState = &viewportstate;
+        pipelineinfo.pRasterizationState = &rasterizer;
+        pipelineinfo.pMultisampleState = &multisampling;
+        pipelineinfo.pDepthStencilState = 0;
+        pipelineinfo.pColorBlendState = &colorblending;
+        pipelineinfo.pDynamicState = &dynamicstate;
+        pipelineinfo.layout = vkshader->pipeline_layout;
+        pipelineinfo.renderPass = vkback->render_pass;
+        pipelineinfo.subpass = 0;
+        pipelineinfo.basePipelineHandle = VK_NULL_HANDLE;
+        pipelineinfo.basePipelineIndex = -1;
+
+    if (vkCreateGraphicsPipelines(vkback->device, VK_NULL_HANDLE, 1, &pipelineinfo, 0, &vkshader->pipeline) != VK_SUCCESS) {
+        printf("failed to create graphics pipeline!\n");
+        exit(1);
+    }
+
+    vkDestroyShaderModule(vkback->device, frag_module, 0);
+    vkDestroyShaderModule(vkback->device, vert_module, 0);
+
+    return shader;
+}
+
+
+void eng_RENDERER_BACKEND_VULKAN_unload_shader(EngRendererInterface* this, EngShader* shader) {
+    EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
+    EngShader_RENDERER_BACKEND_VULKAN* vkshader = shader->backend_data;
+
+    vkDestroyPipeline(vkback->device, vkshader->pipeline, 0);
+    vkDestroyPipelineLayout(vkback->device, vkshader->pipeline_layout, 0);
+
+    free(vkshader);
+    free(shader);
+}
+
+void eng_RENDERER_BACKEND_VULKAN_bind_shader(EngRendererInterface* this, EngShader* shader) {
+    EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
+    EngShader_RENDERER_BACKEND_VULKAN* vkshader = shader->backend_data;
+
+    vkCmdBindPipeline(vkback->command_buffers[vkback->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, vkshader->pipeline);
+}
+
+void eng_RENDERER_BACKEND_VULKAN_draw(EngRendererInterface* this, int vertices, int instances) {
+    EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
+    vkCmdDraw(vkback->command_buffers[vkback->current_frame], vertices,instances, 0,0);
+}
+
+void eng_RENDERER_BACKEND_VULKAN_bind_frame_viewport(EngRendererInterface* this) {
+    EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
+    
+    VkViewport viewport = {0};
+        viewport.x = 0;
+        viewport.y = 0;
+        viewport.width = vkback->swapchain_extent.width;
+        viewport.height = vkback->swapchain_extent.height;
+        viewport.minDepth = 0;
+        viewport.maxDepth = 1;
+    vkCmdSetViewport(vkback->command_buffers[vkback->current_frame], 0,1, &viewport);
+
+    VkRect2D scissor = {0};
+        scissor.offset = (VkOffset2D){0,0};
+        scissor.extent = vkback->swapchain_extent;
+    vkCmdSetScissor(vkback->command_buffers[vkback->current_frame], 0,1, &scissor);
+}
+
+void eng_RENDERER_BACKEND_VULKAN_bind_viewport(EngRendererInterface* this, vec4 viewport) {
+    EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
+    
+    VkViewport vp = {0};
+        vp.x = viewport.x;
+        vp.y = viewport.y;
+        vp.width = viewport.z;
+        vp.height = viewport.w;
+        vp.minDepth = 0;
+        vp.maxDepth = 1;
+    vkCmdSetViewport(vkback->command_buffers[vkback->current_frame], 0,1, &vp);
+
+    VkRect2D scissor = {0};
+        scissor.offset = (VkOffset2D){0,0};
+        scissor.extent = vkback->swapchain_extent;
+    vkCmdSetScissor(vkback->command_buffers[vkback->current_frame], 0,1, &scissor);
+}
+
 /* FUNCS */
 
 EngRendererInterface* eng_RENDERER_BACKEND_VULKAN_make_interface(void) {
@@ -970,6 +1015,15 @@ EngRendererInterface* eng_RENDERER_BACKEND_VULKAN_make_interface(void) {
 
     interface->frame_begin = eng_RENDERER_BACKEND_VULKAN_frame_begin;
     interface->send = eng_RENDERER_BACKEND_VULKAN_send;
+
+    interface->load_shader = eng_RENDERER_BACKEND_VULKAN_load_shader;
+    interface->unload_shader = eng_RENDERER_BACKEND_VULKAN_unload_shader;
+    
+    interface->draw = eng_RENDERER_BACKEND_VULKAN_draw;
+
+    interface->bind_shader = eng_RENDERER_BACKEND_VULKAN_bind_shader;
+    interface->bind_frame_viewport = eng_RENDERER_BACKEND_VULKAN_bind_frame_viewport;
+    interface->bind_viewport = eng_RENDERER_BACKEND_VULKAN_bind_viewport;
 
     return interface;
 }

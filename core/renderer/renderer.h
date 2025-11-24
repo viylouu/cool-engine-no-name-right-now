@@ -1,12 +1,17 @@
 #pragma once
 
 #include <core/platform/platform.h>
+#include <core/util/cvec.h>
 
 /* TYPES */
 
 typedef enum EngRendererBackend {
     ENG_RENDERER_VULKAN
 } EngRendererBackend;
+
+typedef struct EngShader {
+    void* backend_data;
+} EngShader;
 
 typedef struct EngRendererInterface EngRendererInterface;
 struct EngRendererInterface {
@@ -31,6 +36,41 @@ struct EngRendererInterface {
         EngRendererInterface* this,
         EngPlatformInterface* platform
         );
+
+    // draw stuff
+
+    // shaders {
+        EngShader* (*load_shader)(
+            EngRendererInterface* this,
+            const char* vert,
+            const char* frag
+            );
+
+        void (*unload_shader)(
+            EngRendererInterface* this,
+            EngShader* shader
+            );
+    // } commands {
+        void (*draw)(
+            EngRendererInterface* this,
+            int vertices,
+            int instances
+            );
+    // } bindings {
+        void (*bind_shader)(
+            EngRendererInterface* this,
+            EngShader* shader
+            );
+
+        void (*bind_frame_viewport)(
+            EngRendererInterface* this
+            );
+
+        void (*bind_viewport)(
+            EngRendererInterface* this,
+            vec4 viewport
+            );
+    // )
 };
 
 /* FUNCS */
