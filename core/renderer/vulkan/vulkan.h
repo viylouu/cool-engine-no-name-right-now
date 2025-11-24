@@ -45,6 +45,7 @@ typedef struct EngRendererInterface_RENDERER_BACKEND_VULKAN {
     uint32_t in_flight_fence_count;
 
     uint32_t current_frame;
+    uint32_t image_index;
 
     uint8_t framebuffer_resized;
 } EngRendererInterface_RENDERER_BACKEND_VULKAN;

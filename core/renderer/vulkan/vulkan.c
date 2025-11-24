@@ -711,33 +711,7 @@ void eng_RENDERER_BACKEND_VULKAN_create_command_buffers(EngRendererInterface* th
 
 void eng_RENDERER_BACKEND_VULKAN_record_command_buffer(EngRendererInterface* this, VkCommandBuffer command_buffer, uint32_t image_index) {
     EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
-
-    VkCommandBufferBeginInfo begininfo = {0};
-        begininfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        begininfo.flags = 0;
-        begininfo.pInheritanceInfo = 0;
-
-    if (vkBeginCommandBuffer(command_buffer, &begininfo) != VK_SUCCESS) {
-        printf("failed to begin recording command buffer!\n");
-        exit(1);
-    }
-
-    VkRenderPassBeginInfo renderpassinfo = {0};
-        renderpassinfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        renderpassinfo.renderPass = vkback->render_pass;
-        renderpassinfo.framebuffer = vkback->swapchain_framebuffers[image_index];
-        renderpassinfo.renderArea.offset = (VkOffset2D){0,0};
-        renderpassinfo.renderArea.extent = vkback->swapchain_extent;
-
-    // tf is this triple brackets dogshit doing in my code
-    // i mean... if it is dogshit... its not out of place in my code
-    // BUT WHO CARES! i dont like it
-    VkClearValue clearcolor = { .color = { .float32 = {0,0,0,1}}};
-    renderpassinfo.clearValueCount = 1;
-    renderpassinfo.pClearValues = &clearcolor;
-
-    vkCmdBeginRenderPass(command_buffer, &renderpassinfo, VK_SUBPASS_CONTENTS_INLINE);
-
+    
     // ACTUALLY DRAW STUFF
     // NOTE: split this out later into individual stuff for engine to call
 
@@ -758,15 +732,6 @@ void eng_RENDERER_BACKEND_VULKAN_record_command_buffer(EngRendererInterface* thi
     vkCmdSetScissor(command_buffer, 0,1, &scissor);
 
     vkCmdDraw(command_buffer, 6,1, 0,0);
-
-    // END OF RENDER
-
-    vkCmdEndRenderPass(command_buffer);
-
-    if (vkEndCommandBuffer(command_buffer) != VK_SUCCESS) {
-        printf("failed to record command buffer!\n");
-        exit(1);
-    }
 }
 
 void eng_RENDERER_BACKEND_VULKAN_create_sync_objects(EngRendererInterface* this) {
@@ -891,7 +856,7 @@ void eng_RENDERER_BACKEND_VULKAN_destr(EngRendererInterface* this) {
     free(this);
 }
 
-void eng_RENDERER_BACKEND_VULKAN_draw_frame(EngRendererInterface* this, EngPlatformInterface* platform) {
+void eng_RENDERER_BACKEND_VULKAN_frame_begin(EngRendererInterface* this, EngPlatformInterface* platform) {
     EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
 
     vkWaitForFences(vkback->device, 1, &vkback->in_flight_fences[vkback->current_frame], VK_TRUE, UINT64_MAX);
@@ -910,7 +875,44 @@ void eng_RENDERER_BACKEND_VULKAN_draw_frame(EngRendererInterface* this, EngPlatf
     vkResetFences(vkback->device, 1, &vkback->in_flight_fences[vkback->current_frame]);
     vkResetCommandBuffer(vkback->command_buffers[vkback->current_frame], 0);
 
-    eng_RENDERER_BACKEND_VULKAN_record_command_buffer(this, vkback->command_buffers[vkback->current_frame], imageindex);
+    vkback->image_index = imageindex;
+
+    VkCommandBufferBeginInfo begininfo = {0};
+        begininfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        begininfo.flags = 0;
+        begininfo.pInheritanceInfo = 0;
+
+    if (vkBeginCommandBuffer(vkback->command_buffers[vkback->current_frame], &begininfo) != VK_SUCCESS) {
+        printf("failed to begin recording command buffer!\n");
+        exit(1);
+    }
+
+    VkRenderPassBeginInfo renderpassinfo = {0};
+        renderpassinfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        renderpassinfo.renderPass = vkback->render_pass;
+        renderpassinfo.framebuffer = vkback->swapchain_framebuffers[vkback->image_index];
+        renderpassinfo.renderArea.offset = (VkOffset2D){0,0};
+        renderpassinfo.renderArea.extent = vkback->swapchain_extent;
+
+    // tf is this triple brackets dogshit doing in my code
+    // i mean... if it is dogshit... its not out of place in my code
+    // BUT WHO CARES! i dont like it
+    VkClearValue clearcolor = { .color = { .float32 = {0,0,0,1}}};
+    renderpassinfo.clearValueCount = 1;
+    renderpassinfo.pClearValues = &clearcolor;
+
+    vkCmdBeginRenderPass(vkback->command_buffers[vkback->current_frame], &renderpassinfo, VK_SUBPASS_CONTENTS_INLINE);
+}
+
+void eng_RENDERER_BACKEND_VULKAN_send(EngRendererInterface* this, EngPlatformInterface* platform) {
+    EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
+
+    vkCmdEndRenderPass(vkback->command_buffers[vkback->current_frame]);
+
+    if (vkEndCommandBuffer(vkback->command_buffers[vkback->current_frame]) != VK_SUCCESS) {
+        printf("failed to record command buffer!\n");
+        exit(1);
+    }
 
     VkSubmitInfo submitinfo = {0};
         submitinfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -941,10 +943,10 @@ void eng_RENDERER_BACKEND_VULKAN_draw_frame(EngRendererInterface* this, EngPlatf
     VkSwapchainKHR swapchains[] = {vkback->swapchain};
     presentinfo.swapchainCount = 1;
     presentinfo.pSwapchains = swapchains;
-    presentinfo.pImageIndices = &imageindex;
+    presentinfo.pImageIndices = &vkback->image_index;
     presentinfo.pResults = 0;
 
-    result = vkQueuePresentKHR(vkback->present_queue, &presentinfo);
+    VkResult result = vkQueuePresentKHR(vkback->present_queue, &presentinfo);
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || vkback->framebuffer_resized) {
         eng_RENDERER_BACKEND_VULKAN_recreate_swapchain(this, platform);
@@ -966,7 +968,8 @@ EngRendererInterface* eng_RENDERER_BACKEND_VULKAN_make_interface(void) {
     interface->constr = eng_RENDERER_BACKEND_VULKAN_constr;
     interface->destr = eng_RENDERER_BACKEND_VULKAN_destr;
 
-    interface->draw_frame = eng_RENDERER_BACKEND_VULKAN_draw_frame;
+    interface->frame_begin = eng_RENDERER_BACKEND_VULKAN_frame_begin;
+    interface->send = eng_RENDERER_BACKEND_VULKAN_send;
 
     return interface;
 }

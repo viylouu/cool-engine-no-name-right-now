@@ -52,7 +52,7 @@ void eng_PLATFORM_BACKEND_GLFW_constr(EngPlatformInterface* this) {
 void eng_PLATFORM_BACKEND_GLFW_destr(EngPlatformInterface* this) {
     EngPlatformInterface_PLATFORM_BACKEND_GLFW* glfwback = this->backend_data;
 
-    this->present(this); // fix for segfault
+    this->swap(this); // fix for segfault
 
     glfwDestroyWindow(glfwback->window);
     glfwTerminate();
@@ -71,7 +71,7 @@ void eng_PLATFORM_BACKEND_GLFW_poll(EngPlatformInterface* this) {
     glfwPollEvents();
 }
 
-void eng_PLATFORM_BACKEND_GLFW_present(EngPlatformInterface* this) {
+void eng_PLATFORM_BACKEND_GLFW_swap(EngPlatformInterface* this) {
     EngPlatformInterface_PLATFORM_BACKEND_GLFW* glfwback = this->backend_data;
     glfwSwapBuffers(glfwback->window);
 }
@@ -142,7 +142,7 @@ EngPlatformInterface* eng_PLATFORM_BACKEND_GLFW_make_interface(void) {
     interface->destr = eng_PLATFORM_BACKEND_GLFW_destr;
     interface->is_running = eng_PLATFORM_BACKEND_GLFW_is_running;
     interface->poll = eng_PLATFORM_BACKEND_GLFW_poll;
-    interface->present = eng_PLATFORM_BACKEND_GLFW_present;
+    interface->swap = eng_PLATFORM_BACKEND_GLFW_swap;
     interface->get_handle = eng_PLATFORM_BACKEND_GLFW_get_handle;
     interface->get_frame_size = eng_PLATFORM_BACKEND_GLFW_get_frame_size;
     interface->set_resize_callback = eng_PLATFORM_BACKEND_GLFW_set_resize_callback;

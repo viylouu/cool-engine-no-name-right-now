@@ -14,8 +14,10 @@ int main(void) {
 
     while (platform->is_running(platform)) {
         platform->poll(platform);
-        renderer->draw_frame(renderer, platform);
-        platform->present(platform);
+        renderer->frame_begin(renderer, platform);
+
+        renderer->send(renderer, platform);
+        platform->swap(platform);
     }
 
     renderer->destr(renderer);

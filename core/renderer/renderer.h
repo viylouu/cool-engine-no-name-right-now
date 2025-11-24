@@ -22,9 +22,12 @@ struct EngRendererInterface {
         EngRendererInterface* this
         );
 
-    // for now, this is just a single draw frame thing
-    // im too lazy to start doing the api right now, so this is all you get
-    void (*draw_frame)(
+    void (*frame_begin)(
+        EngRendererInterface* this,
+        EngPlatformInterface* platform
+        );
+
+    void (*send)(
         EngRendererInterface* this,
         EngPlatformInterface* platform
         );

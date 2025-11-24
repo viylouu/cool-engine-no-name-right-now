@@ -64,7 +64,7 @@ if $BUILD_WINDOWS; then
     C_LINKFLAGS+=" -Ldeps/VULKAN -Lengine/deps/VULKAN -lvulkan-1 -Ldeps/GLFW -Lengine/deps/GLFW -lglfw3 -lgdi32"
     #C_COMPFLAGS+=" -fno-sanitize=undefined"
 else
-    C_LINKFLAGS+=" -lvulkan -lglfw -ldl -lpthread -lX11 -lXxf86vm -lXrandr -lXi"
+    C_LINKFLAGS+=" -lvulkan -lglfw -ldl -lpthread -lX11 -lXxf86vm -lXrandr -lXi -lm"
 fi
 
 if $BUILD_TEST; then

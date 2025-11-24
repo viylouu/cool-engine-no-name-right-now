@@ -32,7 +32,7 @@ struct EngPlatformInterface {
         EngPlatformInterface* this
         );
 
-    void (*present)(
+    void (*swap)(
         EngPlatformInterface* this
         );
 

@@ -31,6 +31,11 @@
         },
 	{
             "directory": "/media/storage/projects/engine",
+            "command": "gcc -std=c99 -pedantic -Wall -Wextra  -Iengine -I. -Ideps -isystem -O0 -g -c \"./core/util/matrix.c\"",
+            "file": "/media/storage/projects/engine/core/util/matrix.c"
+        },
+	{
+            "directory": "/media/storage/projects/engine",
             "command": "gcc -std=c99 -pedantic -Wall -Wextra  -Iengine -I. -Ideps -isystem -O0 -g -c \"./src/main.c\"",
             "file": "/media/storage/projects/engine/src/main.c"
         }
