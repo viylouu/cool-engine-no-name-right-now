@@ -35,8 +35,8 @@ done
 #### #### C COMPILER
 if $BUILD_WINDOWS && command -v x86_64-w64-mingw32-gcc &> /dev/null; then
     COMPILER_C=("x86_64-w64-mingw32-gcc")
-elif $BUILD_TEST && command -v tcc --version &> /dev/null; then
-    COMPILER_C=("tcc")
+#elif $BUILD_TEST && command -v tcc --version &> /dev/null; then
+#    COMPILER_C=("tcc")
 else
     if command -v gcc &> /dev/null; then
         COMPILER_C=("gcc")
@@ -68,11 +68,11 @@ else
 fi
 
 if $BUILD_TEST; then
-    C_COMPFLAGS+=" -O0 -g" # -fno-sanitize=undefined
-    C_LINKFLAGS+=" -g -fno-lto"
+    C_COMPFLAGS+=" -O0 -g -fsanitize=address"
+    C_LINKFLAGS+=" -g -fno-lto -fsanitize=address"
 else
-    C_COMPFLAGS+=" -O3"
-    C_LINKFLAGS+=" -flto"
+    C_COMPFLAGS+=" -O3 -fno-sanitize=address"
+    C_LINKFLAGS+=" -flto -fno-sanitize=address"
 fi
 
 #### FUNCS
@@ -124,6 +124,7 @@ try_cache() {
         echo "ccache enabled!"
         COMPILER_C=("ccache" "${COMPILER_C[@]}")
     fi
+    #echo "hi :)"
 }
 
 C_compile_file() {

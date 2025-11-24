@@ -14,9 +14,9 @@ int main(void) {
         platform->poll(platform);
         renderer->frame_begin(renderer, platform);
 
-        renderer->bind_shader(renderer, shader);
-        renderer->bind_frame_viewport(renderer);
-        renderer->draw(renderer, 6,1);
+        //renderer->bind_shader(renderer, shader);
+        //renderer->bind_frame_viewport(renderer);
+        //renderer->draw(renderer, 6,1);
 
         renderer->send(renderer, platform);
         platform->swap(platform);

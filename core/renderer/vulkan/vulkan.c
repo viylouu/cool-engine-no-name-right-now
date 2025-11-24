@@ -26,7 +26,7 @@ const char* requiredextensions[] = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
 
-const int MAX_FRAMES_IN_FLIGHT = 2;
+const uint32_t MAX_FRAMES_IN_FLIGHT = 2;
 
 /* PRIVATE FUNCS */
 
@@ -632,6 +632,7 @@ void eng_RENDERER_BACKEND_VULKAN_constr(EngRendererInterface* this, EngPlatformI
 
     vkback->framebuffer_resized = 0;
     platform->set_resize_callback(platform, vkback, eng_RENDERER_BACKEND_VULKAN_resize_callback);
+    vkback->current_frame = 0;
 
     eng_RENDERER_BACKEND_VULKAN_create_instance(this, platform);
     eng_RENDERER_BACKEND_VULKAN_create_surface(this, platform);
