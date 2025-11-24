@@ -1,3 +1,4 @@
 /.cache/
 /build/
 /cloc.sh
+/data/eng/shaders/vulkan/*.spv

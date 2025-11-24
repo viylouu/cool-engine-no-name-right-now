@@ -425,6 +425,12 @@ void eng_RENDERER_BACKEND_VULKAN_create_image_views(EngRendererInterface* this) 
     }
 }
 
+void eng_RENDERER_BACKEND_VULKAN_create_graphics_pipeline(EngRendererInterface* this) {
+    EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
+
+    (void)vkback;
+}
+
 /* INTERFACE FUNCS */
 
 void eng_RENDERER_BACKEND_VULKAN_constr(EngRendererInterface* this, EngPlatformInterface* platform) {
@@ -437,6 +443,7 @@ void eng_RENDERER_BACKEND_VULKAN_constr(EngRendererInterface* this, EngPlatformI
     eng_RENDERER_BACKEND_VULKAN_create_logical_device(this);
     eng_RENDERER_BACKEND_VULKAN_create_swapchain(this, platform);
     eng_RENDERER_BACKEND_VULKAN_create_image_views(this);
+    eng_RENDERER_BACKEND_VULKAN_create_graphics_pipeline(this);
 }
 
 void eng_RENDERER_BACKEND_VULKAN_destr(EngRendererInterface* this) {

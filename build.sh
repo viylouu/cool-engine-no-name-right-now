@@ -159,6 +159,8 @@ done
 
 wait
 
+./data/eng/shaders/vulkan/compile.sh
+
 #### LINKING
 
 mapfile -t OBJS < "$OBJDIR/objs.tmp"
