@@ -26,6 +26,8 @@ const char* requiredextensions[] = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
 
+const int MAX_FRAMES_IN_FLIGHT = 2;
+
 /* PRIVATE FUNCS */
 
 void eng_RENDERER_BACKEND_VULKAN_create_instance(EngRendererInterface* this, EngPlatformInterface* platform) {
@@ -689,16 +691,19 @@ void eng_RENDERER_BACKEND_VULKAN_create_command_pool(EngRendererInterface* this)
     }
 }
 
-void eng_RENDERER_BACKEND_VULKAN_create_command_buffer(EngRendererInterface* this) {
+void eng_RENDERER_BACKEND_VULKAN_create_command_buffers(EngRendererInterface* this) {
     EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
+
+    vkback->command_buffer_count = MAX_FRAMES_IN_FLIGHT;
+    vkback->command_buffers = malloc(sizeof(VkCommandBuffer) * vkback->command_buffer_count);
 
     VkCommandBufferAllocateInfo allocinfo = {0};
         allocinfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
         allocinfo.commandPool = vkback->command_pool;
         allocinfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        allocinfo.commandBufferCount = 1;
+        allocinfo.commandBufferCount = vkback->command_buffer_count;
 
-    if (vkAllocateCommandBuffers(vkback->device, &allocinfo, &vkback->command_buffer) != VK_SUCCESS) {
+    if (vkAllocateCommandBuffers(vkback->device, &allocinfo, vkback->command_buffers) != VK_SUCCESS) {
         printf("failed to allocate command buffers!\n");
         exit(1);
     }
@@ -767,6 +772,13 @@ void eng_RENDERER_BACKEND_VULKAN_record_command_buffer(EngRendererInterface* thi
 void eng_RENDERER_BACKEND_VULKAN_create_sync_objects(EngRendererInterface* this) {
     EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
 
+    vkback->image_available_semaphore_count = MAX_FRAMES_IN_FLIGHT;
+    vkback->image_available_semaphores = malloc(sizeof(VkSemaphore) * vkback->image_available_semaphore_count);
+    vkback->render_finished_semaphore_count = MAX_FRAMES_IN_FLIGHT;
+    vkback->render_finished_semaphores = malloc(sizeof(VkSemaphore) * vkback->render_finished_semaphore_count);
+    vkback->in_flight_fence_count = MAX_FRAMES_IN_FLIGHT;
+    vkback->in_flight_fences = malloc(sizeof(VkFence) * vkback->in_flight_fence_count);
+
     VkSemaphoreCreateInfo semaphoreinfo = {0};
         semaphoreinfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
@@ -774,12 +786,14 @@ void eng_RENDERER_BACKEND_VULKAN_create_sync_objects(EngRendererInterface* this)
         fenceinfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
         fenceinfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-    if (vkCreateSemaphore(vkback->device, &semaphoreinfo, 0, &vkback->image_available_semaphore) != VK_SUCCESS ||
-        vkCreateSemaphore(vkback->device, &semaphoreinfo, 0, &vkback->render_finished_semaphore) != VK_SUCCESS ||
-        vkCreateFence(vkback->device, &fenceinfo, 0, &vkback->in_flight_fence) != VK_SUCCESS) {
-        printf("failed to create semaphores!\n");
-        exit(1);
-    } 
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+        if (vkCreateSemaphore(vkback->device, &semaphoreinfo, 0, &vkback->image_available_semaphores[i]) != VK_SUCCESS ||
+            vkCreateSemaphore(vkback->device, &semaphoreinfo, 0, &vkback->render_finished_semaphores[i]) != VK_SUCCESS ||
+            vkCreateFence(vkback->device, &fenceinfo, 0, &vkback->in_flight_fences[i]) != VK_SUCCESS) {
+            printf("failed to create synchronization objects for a frame!\n");
+            exit(1);
+        }
+    }
 }
 
 /* INTERFACE FUNCS */
@@ -798,7 +812,7 @@ void eng_RENDERER_BACKEND_VULKAN_constr(EngRendererInterface* this, EngPlatformI
     eng_RENDERER_BACKEND_VULKAN_create_graphics_pipeline(this);
     eng_RENDERER_BACKEND_VULKAN_create_framebuffers(this);
     eng_RENDERER_BACKEND_VULKAN_create_command_pool(this);
-    eng_RENDERER_BACKEND_VULKAN_create_command_buffer(this);
+    eng_RENDERER_BACKEND_VULKAN_create_command_buffers(this);
     eng_RENDERER_BACKEND_VULKAN_create_sync_objects(this);
 }
 
@@ -807,9 +821,11 @@ void eng_RENDERER_BACKEND_VULKAN_destr(EngRendererInterface* this) {
 
     vkDeviceWaitIdle(vkback->device);
 
-    vkDestroySemaphore(vkback->device, vkback->image_available_semaphore, 0);
-    vkDestroySemaphore(vkback->device, vkback->render_finished_semaphore, 0);
-    vkDestroyFence(vkback->device, vkback->in_flight_fence, 0);
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+        vkDestroySemaphore(vkback->device, vkback->image_available_semaphores[i], 0);
+        vkDestroySemaphore(vkback->device, vkback->render_finished_semaphores[i], 0);
+        vkDestroyFence(vkback->device, vkback->in_flight_fences[i], 0);
+    }
 
     vkDestroyCommandPool(vkback->device, vkback->command_pool, 0);
 
@@ -828,6 +844,11 @@ void eng_RENDERER_BACKEND_VULKAN_destr(EngRendererInterface* this) {
     vkDestroyDevice(vkback->device, 0);
     vkDestroyInstance(vkback->instance, 0);
 
+    free(vkback->command_buffers);
+    free(vkback->image_available_semaphores);
+    free(vkback->render_finished_semaphores);
+    free(vkback->in_flight_fences);
+
     free(vkback->swapchain_framebuffers);
     free(vkback->swapchain_image_views);
     free(vkback->swapchain_images);
@@ -839,33 +860,33 @@ void eng_RENDERER_BACKEND_VULKAN_destr(EngRendererInterface* this) {
 void eng_RENDERER_BACKEND_VULKAN_draw_frame(EngRendererInterface* this) {
     EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
 
-    vkWaitForFences(vkback->device, 1, &vkback->in_flight_fence, VK_TRUE, 100000000);
-    vkResetFences(vkback->device, 1, &vkback->in_flight_fence);
+    vkWaitForFences(vkback->device, 1, &vkback->in_flight_fences[vkback->current_frame], VK_TRUE, UINT64_MAX);
+    vkResetFences(vkback->device, 1, &vkback->in_flight_fences[vkback->current_frame]);
 
     uint32_t imageindex;
-    vkAcquireNextImageKHR(vkback->device, vkback->swapchain, 100000000, vkback->image_available_semaphore, VK_NULL_HANDLE, &imageindex);
+    vkAcquireNextImageKHR(vkback->device, vkback->swapchain, UINT64_MAX, vkback->image_available_semaphores[vkback->current_frame], VK_NULL_HANDLE, &imageindex);
 
-    vkResetCommandBuffer(vkback->command_buffer, 0);
+    vkResetCommandBuffer(vkback->command_buffers[vkback->current_frame], 0);
 
-    eng_RENDERER_BACKEND_VULKAN_record_command_buffer(this, vkback->command_buffer, imageindex);
+    eng_RENDERER_BACKEND_VULKAN_record_command_buffer(this, vkback->command_buffers[vkback->current_frame], imageindex);
 
     VkSubmitInfo submitinfo = {0};
         submitinfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-    VkSemaphore waitsemaphores[] = {vkback->image_available_semaphore};
+    VkSemaphore waitsemaphores[] = {vkback->image_available_semaphores[vkback->current_frame]};
     VkPipelineStageFlags waitstages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
     // im just going to reindent since this is just silly
         submitinfo.waitSemaphoreCount = 1;
         submitinfo.pWaitSemaphores = waitsemaphores;
         submitinfo.pWaitDstStageMask = waitstages;
         submitinfo.commandBufferCount = 1;
-        submitinfo.pCommandBuffers = &vkback->command_buffer;
+        submitinfo.pCommandBuffers = &vkback->command_buffers[vkback->current_frame];
 
-    VkSemaphore signalsemaphores[] = {vkback->render_finished_semaphore};
+    VkSemaphore signalsemaphores[] = {vkback->render_finished_semaphores[vkback->current_frame]};
     submitinfo.signalSemaphoreCount = 1;
     submitinfo.pSignalSemaphores = signalsemaphores;
 
-    if (vkQueueSubmit(vkback->graphics_queue, 1, &submitinfo, vkback->in_flight_fence) != VK_SUCCESS) {
+    if (vkQueueSubmit(vkback->graphics_queue, 1, &submitinfo, vkback->in_flight_fences[vkback->current_frame]) != VK_SUCCESS) {
         printf("failed to submit draw command buffer!\n");
         exit(1);
     }
@@ -882,6 +903,8 @@ void eng_RENDERER_BACKEND_VULKAN_draw_frame(EngRendererInterface* this) {
     presentinfo.pResults = 0;
 
     vkQueuePresentKHR(vkback->present_queue, &presentinfo);
+
+    vkback->current_frame = (vkback->current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
 /* FUNCS */

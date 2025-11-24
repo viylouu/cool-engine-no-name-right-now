@@ -32,11 +32,19 @@ typedef struct EngRendererInterface_RENDERER_BACKEND_VULKAN {
     VkPipeline graphics_pipeline;
 
     VkCommandPool command_pool;
-    VkCommandBuffer command_buffer;
 
-    VkSemaphore image_available_semaphore;
-    VkSemaphore render_finished_semaphore;
-    VkFence in_flight_fence;
+    // pointer spam time
+    VkCommandBuffer* command_buffers;
+    uint32_t command_buffer_count;
+
+    VkSemaphore* image_available_semaphores;
+    uint32_t image_available_semaphore_count;
+    VkSemaphore* render_finished_semaphores;
+    uint32_t render_finished_semaphore_count;
+    VkFence* in_flight_fences;
+    uint32_t in_flight_fence_count;
+
+    uint32_t current_frame;
 } EngRendererInterface_RENDERER_BACKEND_VULKAN;
 
 /* FUNCS */
