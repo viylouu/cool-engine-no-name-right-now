@@ -4,6 +4,8 @@
 #include <deps/GLFW/glfw3.h>
 #include <core/platform/glfw/glfw.h>
 
+#include <core/data.h>
+
 #if _WIN32
 #define VK_USE_PLATFORM_WIN32_KHR
 #elif __linux__
@@ -425,10 +427,52 @@ void eng_RENDERER_BACKEND_VULKAN_create_image_views(EngRendererInterface* this) 
     }
 }
 
+VkShaderModule eng_RENDERER_BACKEND_VULKAN_create_shader_module(EngRendererInterface* this, char* code, size_t code_len) {
+    EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
+
+    VkShaderModuleCreateInfo createinfo = {0};
+        createinfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+        createinfo.codeSize = code_len;
+        createinfo.pCode = *(uint32_t**)&code;
+
+    VkShaderModule shadermodule;
+    if (vkCreateShaderModule(vkback->device, &createinfo, 0, &shadermodule) != VK_SUCCESS) {
+        printf("failed to create shader module!\n");
+        exit(1);
+    }
+
+    return shadermodule;
+}
+
 void eng_RENDERER_BACKEND_VULKAN_create_graphics_pipeline(EngRendererInterface* this) {
     EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
 
-    (void)vkback;
+    size_t tri_vert_size = 0;
+    size_t tri_frag_size = 0;
+    char* tri_vert = engLoadDataFile("data/eng/shaders/vulkan/tri.vert.spv", &tri_vert_size);
+    char* tri_frag = engLoadDataFile("data/eng/shaders/vulkan/tri.frag.spv", &tri_frag_size);
+
+    VkShaderModule tri_vert_module = eng_RENDERER_BACKEND_VULKAN_create_shader_module(this, tri_vert, tri_vert_size);
+    VkShaderModule tri_frag_module = eng_RENDERER_BACKEND_VULKAN_create_shader_module(this, tri_frag, tri_frag_size);
+
+    VkPipelineShaderStageCreateInfo tri_vert_shaderstageinfo = {0};
+        tri_vert_shaderstageinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        tri_vert_shaderstageinfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+        tri_vert_shaderstageinfo.module = tri_vert_module;
+        tri_vert_shaderstageinfo.pName = "main";
+
+    VkPipelineShaderStageCreateInfo tri_frag_shaderstageinfo = {0};
+        tri_frag_shaderstageinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        tri_frag_shaderstageinfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+        tri_frag_shaderstageinfo.module = tri_frag_module;
+        tri_frag_shaderstageinfo.pName = "main";
+
+    VkPipelineShaderStageCreateInfo tri_shaderstages[] = {tri_vert_shaderstageinfo, tri_frag_shaderstageinfo};
+
+    (void)tri_shaderstages;
+
+    vkDestroyShaderModule(vkback->device, tri_frag_module, 0);
+    vkDestroyShaderModule(vkback->device, tri_vert_module, 0);
 }
 
 /* INTERFACE FUNCS */
