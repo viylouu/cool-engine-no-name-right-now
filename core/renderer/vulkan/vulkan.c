@@ -318,10 +318,10 @@ VkPresentModeKHR eng_RENDERER_BACKEND_VULKAN_choose_swap_present_mode(VkPresentM
 }
 
 VkExtent2D eng_RENDERER_BACKEND_VULKAN_choose_swap_extent(EngPlatformInterface* platform, VkSurfaceCapabilitiesKHR capabilities) {
-    if (capabilities.currentExtent.width == UINT32_MAX) {
+    if (capabilities.currentExtent.width == UINT32_MAX || capabilities.currentExtent.width == 0) {
         int width, height;
         platform->get_frame_size(platform, &width, &height);
-
+ 
         VkExtent2D actualextent = {width, height};
 
         // aaaaaaa
@@ -335,8 +335,13 @@ VkExtent2D eng_RENDERER_BACKEND_VULKAN_choose_swap_extent(EngPlatformInterface* 
         if (actualextent.height > capabilities.maxImageExtent.height)
             actualextent.height = capabilities.maxImageExtent.height;
 
+        if (actualextent.width == 0) actualextent.width = width; // fuck it
+        if (actualextent.height == 0) actualextent.height = height;
+
         return actualextent;
     }
+
+    printf("currentextent: %u, %u\n", capabilities.currentExtent.width, capabilities.currentExtent.height);
 
     return capabilities.currentExtent;
 }
@@ -351,6 +356,9 @@ void eng_RENDERER_BACKEND_VULKAN_create_swapchain(EngRendererInterface* this, En
     VkExtent2D extent = eng_RENDERER_BACKEND_VULKAN_choose_swap_extent(platform, swapchainsupport.capabilities);
 
     uint32_t imagecount = swapchainsupport.capabilities.minImageCount + 1;
+
+    if (imagecount == 1)
+        imagecount = 2;
 
     if (swapchainsupport.capabilities.maxImageCount > 0 && imagecount > swapchainsupport.capabilities.maxImageCount)
         imagecount = swapchainsupport.capabilities.maxImageCount;
@@ -614,12 +622,22 @@ void eng_RENDERER_BACKEND_VULKAN_create_render_pass(EngRendererInterface* this) 
         subpass.colorAttachmentCount = 1;
         subpass.pColorAttachments = &colorattachmentref;
 
+    VkSubpassDependency dependency = {0};
+        dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+        dependency.dstSubpass = 0;
+        dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        dependency.srcAccessMask = 0;
+        dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
     VkRenderPassCreateInfo renderpassinfo = {0};
         renderpassinfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
         renderpassinfo.attachmentCount = 1;
         renderpassinfo.pAttachments = &colorattachment;
         renderpassinfo.subpassCount = 1;
         renderpassinfo.pSubpasses = &subpass;
+        renderpassinfo.dependencyCount = 1;
+        renderpassinfo.pDependencies = &dependency;
 
     if (vkCreateRenderPass(vkback->device, &renderpassinfo, 0, &vkback->render_pass) != VK_SUCCESS) {
         printf("failed to create render pass!\n");
@@ -654,6 +672,116 @@ void eng_RENDERER_BACKEND_VULKAN_create_framebuffers(EngRendererInterface* this)
     }
 }
 
+void eng_RENDERER_BACKEND_VULKAN_create_command_pool(EngRendererInterface* this) {
+    EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
+
+    // bro ts is used everywhere ong
+    EngData_RENDERER_BACKEND_VULKAN_queueFamilyIndices queuefamilyindices = eng_RENDERER_BACKEND_VULKAN_find_queue_families(this, vkback->physical_device);
+
+    VkCommandPoolCreateInfo poolinfo = {0};
+        poolinfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+        poolinfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+        poolinfo.queueFamilyIndex = queuefamilyindices.graphics_family;
+
+    if (vkCreateCommandPool(vkback->device, &poolinfo, 0, &vkback->command_pool) != VK_SUCCESS) {
+        printf("failed to create command pool!\n");
+        exit(1);
+    }
+}
+
+void eng_RENDERER_BACKEND_VULKAN_create_command_buffer(EngRendererInterface* this) {
+    EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
+
+    VkCommandBufferAllocateInfo allocinfo = {0};
+        allocinfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        allocinfo.commandPool = vkback->command_pool;
+        allocinfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        allocinfo.commandBufferCount = 1;
+
+    if (vkAllocateCommandBuffers(vkback->device, &allocinfo, &vkback->command_buffer) != VK_SUCCESS) {
+        printf("failed to allocate command buffers!\n");
+        exit(1);
+    }
+}
+
+void eng_RENDERER_BACKEND_VULKAN_record_command_buffer(EngRendererInterface* this, VkCommandBuffer command_buffer, uint32_t image_index) {
+    EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
+
+    VkCommandBufferBeginInfo begininfo = {0};
+        begininfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        begininfo.flags = 0;
+        begininfo.pInheritanceInfo = 0;
+
+    if (vkBeginCommandBuffer(command_buffer, &begininfo) != VK_SUCCESS) {
+        printf("failed to begin recording command buffer!\n");
+        exit(1);
+    }
+
+    VkRenderPassBeginInfo renderpassinfo = {0};
+        renderpassinfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        renderpassinfo.renderPass = vkback->render_pass;
+        renderpassinfo.framebuffer = vkback->swapchain_framebuffers[image_index];
+        renderpassinfo.renderArea.offset = (VkOffset2D){0,0};
+        renderpassinfo.renderArea.extent = vkback->swapchain_extent;
+
+    // tf is this triple brackets dogshit doing in my code
+    // i mean... if it is dogshit... its not out of place in my code
+    // BUT WHO CARES! i dont like it
+    VkClearValue clearcolor = { .color = { .float32 = {0,0,0,1}}};
+    renderpassinfo.clearValueCount = 1;
+    renderpassinfo.pClearValues = &clearcolor;
+
+    vkCmdBeginRenderPass(command_buffer, &renderpassinfo, VK_SUBPASS_CONTENTS_INLINE);
+
+    // ACTUALLY DRAW STUFF
+    // NOTE: split this out later into individual stuff for engine to call
+
+    vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vkback->graphics_pipeline);
+
+    VkViewport viewport = {0};
+        viewport.x = 0;
+        viewport.y = 0;
+        viewport.width = vkback->swapchain_extent.width;
+        viewport.height = vkback->swapchain_extent.height;
+        viewport.minDepth = 0;
+        viewport.maxDepth = 1;
+    vkCmdSetViewport(command_buffer, 0,1, &viewport);
+
+    VkRect2D scissor = {0};
+        scissor.offset = (VkOffset2D){0,0};
+        scissor.extent = vkback->swapchain_extent;
+    vkCmdSetScissor(command_buffer, 0,1, &scissor);
+
+    vkCmdDraw(command_buffer, 3,1, 0,0);
+
+    // END OF RENDER
+
+    vkCmdEndRenderPass(command_buffer);
+
+    if (vkEndCommandBuffer(command_buffer) != VK_SUCCESS) {
+        printf("failed to record command buffer!\n");
+        exit(1);
+    }
+}
+
+void eng_RENDERER_BACKEND_VULKAN_create_sync_objects(EngRendererInterface* this) {
+    EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
+
+    VkSemaphoreCreateInfo semaphoreinfo = {0};
+        semaphoreinfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+    VkFenceCreateInfo fenceinfo = {0};
+        fenceinfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+        fenceinfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+    if (vkCreateSemaphore(vkback->device, &semaphoreinfo, 0, &vkback->image_available_semaphore) != VK_SUCCESS ||
+        vkCreateSemaphore(vkback->device, &semaphoreinfo, 0, &vkback->render_finished_semaphore) != VK_SUCCESS ||
+        vkCreateFence(vkback->device, &fenceinfo, 0, &vkback->in_flight_fence) != VK_SUCCESS) {
+        printf("failed to create semaphores!\n");
+        exit(1);
+    } 
+}
+
 /* INTERFACE FUNCS */
 
 void eng_RENDERER_BACKEND_VULKAN_constr(EngRendererInterface* this, EngPlatformInterface* platform) {
@@ -669,10 +797,21 @@ void eng_RENDERER_BACKEND_VULKAN_constr(EngRendererInterface* this, EngPlatformI
     eng_RENDERER_BACKEND_VULKAN_create_render_pass(this);
     eng_RENDERER_BACKEND_VULKAN_create_graphics_pipeline(this);
     eng_RENDERER_BACKEND_VULKAN_create_framebuffers(this);
+    eng_RENDERER_BACKEND_VULKAN_create_command_pool(this);
+    eng_RENDERER_BACKEND_VULKAN_create_command_buffer(this);
+    eng_RENDERER_BACKEND_VULKAN_create_sync_objects(this);
 }
 
 void eng_RENDERER_BACKEND_VULKAN_destr(EngRendererInterface* this) {
     EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
+
+    vkDeviceWaitIdle(vkback->device);
+
+    vkDestroySemaphore(vkback->device, vkback->image_available_semaphore, 0);
+    vkDestroySemaphore(vkback->device, vkback->render_finished_semaphore, 0);
+    vkDestroyFence(vkback->device, vkback->in_flight_fence, 0);
+
+    vkDestroyCommandPool(vkback->device, vkback->command_pool, 0);
 
     for (uint32_t i = 0; i < vkback->swapchain_framebuffer_count; ++i)
         vkDestroyFramebuffer(vkback->device, vkback->swapchain_framebuffers[i], 0);
@@ -689,11 +828,60 @@ void eng_RENDERER_BACKEND_VULKAN_destr(EngRendererInterface* this) {
     vkDestroyDevice(vkback->device, 0);
     vkDestroyInstance(vkback->instance, 0);
 
+    free(vkback->swapchain_framebuffers);
     free(vkback->swapchain_image_views);
     free(vkback->swapchain_images);
 
     free(vkback);
     free(this);
+}
+
+void eng_RENDERER_BACKEND_VULKAN_draw_frame(EngRendererInterface* this) {
+    EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
+
+    vkWaitForFences(vkback->device, 1, &vkback->in_flight_fence, VK_TRUE, 100000000);
+    vkResetFences(vkback->device, 1, &vkback->in_flight_fence);
+
+    uint32_t imageindex;
+    vkAcquireNextImageKHR(vkback->device, vkback->swapchain, 100000000, vkback->image_available_semaphore, VK_NULL_HANDLE, &imageindex);
+
+    vkResetCommandBuffer(vkback->command_buffer, 0);
+
+    eng_RENDERER_BACKEND_VULKAN_record_command_buffer(this, vkback->command_buffer, imageindex);
+
+    VkSubmitInfo submitinfo = {0};
+        submitinfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+    VkSemaphore waitsemaphores[] = {vkback->image_available_semaphore};
+    VkPipelineStageFlags waitstages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    // im just going to reindent since this is just silly
+        submitinfo.waitSemaphoreCount = 1;
+        submitinfo.pWaitSemaphores = waitsemaphores;
+        submitinfo.pWaitDstStageMask = waitstages;
+        submitinfo.commandBufferCount = 1;
+        submitinfo.pCommandBuffers = &vkback->command_buffer;
+
+    VkSemaphore signalsemaphores[] = {vkback->render_finished_semaphore};
+    submitinfo.signalSemaphoreCount = 1;
+    submitinfo.pSignalSemaphores = signalsemaphores;
+
+    if (vkQueueSubmit(vkback->graphics_queue, 1, &submitinfo, vkback->in_flight_fence) != VK_SUCCESS) {
+        printf("failed to submit draw command buffer!\n");
+        exit(1);
+    }
+
+    VkPresentInfoKHR presentinfo = {0};
+        presentinfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+        presentinfo.waitSemaphoreCount = 1;
+        presentinfo.pWaitSemaphores = signalsemaphores;
+
+    VkSwapchainKHR swapchains[] = {vkback->swapchain};
+    presentinfo.swapchainCount = 1;
+    presentinfo.pSwapchains = swapchains;
+    presentinfo.pImageIndices = &imageindex;
+    presentinfo.pResults = 0;
+
+    vkQueuePresentKHR(vkback->present_queue, &presentinfo);
 }
 
 /* FUNCS */
@@ -705,6 +893,8 @@ EngRendererInterface* eng_RENDERER_BACKEND_VULKAN_make_interface(void) {
 
     interface->constr = eng_RENDERER_BACKEND_VULKAN_constr;
     interface->destr = eng_RENDERER_BACKEND_VULKAN_destr;
+
+    interface->draw_frame = eng_RENDERER_BACKEND_VULKAN_draw_frame;
 
     return interface;
 }

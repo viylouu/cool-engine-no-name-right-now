@@ -30,6 +30,13 @@ typedef struct EngRendererInterface_RENDERER_BACKEND_VULKAN {
     VkRenderPass render_pass;
     VkPipelineLayout pipeline_layout;
     VkPipeline graphics_pipeline;
+
+    VkCommandPool command_pool;
+    VkCommandBuffer command_buffer;
+
+    VkSemaphore image_available_semaphore;
+    VkSemaphore render_finished_semaphore;
+    VkFence in_flight_fence;
 } EngRendererInterface_RENDERER_BACKEND_VULKAN;
 
 /* FUNCS */

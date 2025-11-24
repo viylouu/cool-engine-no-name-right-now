@@ -14,6 +14,7 @@ int main(void) {
 
     while (platform->is_running(platform)) {
         platform->poll(platform);
+        renderer->draw_frame(renderer);
         platform->present(platform);
     }
 

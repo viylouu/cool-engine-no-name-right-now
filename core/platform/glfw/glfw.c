@@ -40,6 +40,11 @@ void eng_PLATFORM_BACKEND_GLFW_constr(EngPlatformInterface* this) {
 
     this->width = 800;
     this->height = 600;
+
+    // make sure that pesky hyprland doesent force resize the window to 1096x1423 ever fucking again
+    glfwShowWindow(glfwback->window);
+    glfwPollEvents();
+    glfwSetWindowSize(glfwback->window, 800,600);
 }
 
 void eng_PLATFORM_BACKEND_GLFW_destr(EngPlatformInterface* this) {
@@ -91,6 +96,11 @@ void* eng_PLATFORM_BACKEND_GLFW_get_handle(EngPlatformInterface* this) {
 void eng_PLATFORM_BACKEND_GLFW_get_frame_size(EngPlatformInterface* this, int* width, int* height) {
     EngPlatformInterface_PLATFORM_BACKEND_GLFW* glfwback = this->backend_data;
     glfwGetFramebufferSize(glfwback->window, width, height);
+    while (*width == 0 || *height == 0) {
+        printf("waiting!\n");
+        glfwWaitEvents();
+        glfwGetFramebufferSize(glfwback->window, width, height);
+    }
 }
 
 uint8_t eng_PLATFORM_BACKEND_GLFW_supports_vulkan(EngPlatformInterface* this) {
