@@ -627,6 +627,33 @@ void eng_RENDERER_BACKEND_VULKAN_create_render_pass(EngRendererInterface* this) 
     }
 }
 
+void eng_RENDERER_BACKEND_VULKAN_create_framebuffers(EngRendererInterface* this) {
+    EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
+
+    vkback->swapchain_framebuffer_count = vkback->swapchain_image_view_count;
+    vkback->swapchain_framebuffers = malloc(sizeof(VkFramebuffer) * vkback->swapchain_framebuffer_count);
+    
+    for (uint32_t i = 0; i < vkback->swapchain_image_view_count; ++i) {
+        VkImageView attachments[] = {
+            vkback->swapchain_image_views[i]
+        };
+
+        VkFramebufferCreateInfo framebufferinfo = {0};
+            framebufferinfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+            framebufferinfo.renderPass = vkback->render_pass;
+            framebufferinfo.attachmentCount = 1;
+            framebufferinfo.pAttachments = attachments;
+            framebufferinfo.width = vkback->swapchain_extent.width;
+            framebufferinfo.height = vkback->swapchain_extent.height;
+            framebufferinfo.layers = 1;
+
+        if (vkCreateFramebuffer(vkback->device, &framebufferinfo, 0, &vkback->swapchain_framebuffers[i]) != VK_SUCCESS) {
+            printf("failed to create framebuffer!\n");
+            exit(1);
+        }
+    }
+}
+
 /* INTERFACE FUNCS */
 
 void eng_RENDERER_BACKEND_VULKAN_constr(EngRendererInterface* this, EngPlatformInterface* platform) {
@@ -641,10 +668,14 @@ void eng_RENDERER_BACKEND_VULKAN_constr(EngRendererInterface* this, EngPlatformI
     eng_RENDERER_BACKEND_VULKAN_create_image_views(this);
     eng_RENDERER_BACKEND_VULKAN_create_render_pass(this);
     eng_RENDERER_BACKEND_VULKAN_create_graphics_pipeline(this);
+    eng_RENDERER_BACKEND_VULKAN_create_framebuffers(this);
 }
 
 void eng_RENDERER_BACKEND_VULKAN_destr(EngRendererInterface* this) {
     EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
+
+    for (uint32_t i = 0; i < vkback->swapchain_framebuffer_count; ++i)
+        vkDestroyFramebuffer(vkback->device, vkback->swapchain_framebuffers[i], 0);
 
     vkDestroyPipeline(vkback->device, vkback->graphics_pipeline, 0);
     vkDestroyPipelineLayout(vkback->device, vkback->pipeline_layout, 0);
