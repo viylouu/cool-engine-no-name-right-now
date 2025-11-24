@@ -29,7 +29,7 @@ void eng_PLATFORM_BACKEND_GLFW_constr(EngPlatformInterface* this) {
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
     glfwback->window = glfwCreateWindow(800,600,"title", 0,0);
     if (!glfwback->window) {
@@ -45,6 +45,8 @@ void eng_PLATFORM_BACKEND_GLFW_constr(EngPlatformInterface* this) {
     glfwShowWindow(glfwback->window);
     glfwPollEvents();
     glfwSetWindowSize(glfwback->window, 800,600);
+
+    glfwSetWindowUserPointer(glfwback->window, this);
 }
 
 void eng_PLATFORM_BACKEND_GLFW_destr(EngPlatformInterface* this) {
@@ -97,10 +99,31 @@ void eng_PLATFORM_BACKEND_GLFW_get_frame_size(EngPlatformInterface* this, int* w
     EngPlatformInterface_PLATFORM_BACKEND_GLFW* glfwback = this->backend_data;
     glfwGetFramebufferSize(glfwback->window, width, height);
     while (*width == 0 || *height == 0) {
-        printf("waiting!\n");
+        if (glfwWindowShouldClose(glfwback->window))
+            return;
+
         glfwWaitEvents();
         glfwGetFramebufferSize(glfwback->window, width, height);
     }
+}
+
+void eng_PLATFORM_BACKEND_GLFW_resize_callback_middleman(GLFWwindow* window, int width, int height) {
+    EngPlatformInterface* this = glfwGetWindowUserPointer(window);
+    EngPlatformInterface_PLATFORM_BACKEND_GLFW* glfwback = this->backend_data;
+    
+    this->width = width;
+    this->height = height;
+
+    glfwback->resize_callback(glfwback->resize_callback_data, width, height);
+}
+
+void eng_PLATFORM_BACKEND_GLFW_set_resize_callback(EngPlatformInterface* this, void* callbackdata, void (*callback)(void* data, int width, int height)) {
+    EngPlatformInterface_PLATFORM_BACKEND_GLFW* glfwback = this->backend_data;
+    
+    glfwback->resize_callback_data = callbackdata;
+    glfwback->resize_callback = callback;
+
+    glfwSetFramebufferSizeCallback(glfwback->window, eng_PLATFORM_BACKEND_GLFW_resize_callback_middleman);
 }
 
 uint8_t eng_PLATFORM_BACKEND_GLFW_supports_vulkan(EngPlatformInterface* this) {
@@ -122,6 +145,7 @@ EngPlatformInterface* eng_PLATFORM_BACKEND_GLFW_make_interface(void) {
     interface->present = eng_PLATFORM_BACKEND_GLFW_present;
     interface->get_handle = eng_PLATFORM_BACKEND_GLFW_get_handle;
     interface->get_frame_size = eng_PLATFORM_BACKEND_GLFW_get_frame_size;
+    interface->set_resize_callback = eng_PLATFORM_BACKEND_GLFW_set_resize_callback;
     interface->supports_vulkan = eng_PLATFORM_BACKEND_GLFW_supports_vulkan;
 
     return interface;

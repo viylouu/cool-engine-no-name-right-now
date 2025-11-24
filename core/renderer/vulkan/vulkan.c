@@ -757,7 +757,7 @@ void eng_RENDERER_BACKEND_VULKAN_record_command_buffer(EngRendererInterface* thi
         scissor.extent = vkback->swapchain_extent;
     vkCmdSetScissor(command_buffer, 0,1, &scissor);
 
-    vkCmdDraw(command_buffer, 3,1, 0,0);
+    vkCmdDraw(command_buffer, 6,1, 0,0);
 
     // END OF RENDER
 
@@ -796,11 +796,50 @@ void eng_RENDERER_BACKEND_VULKAN_create_sync_objects(EngRendererInterface* this)
     }
 }
 
+void eng_RENDERER_BACKEND_VULKAN_cleanup_swapchain(EngRendererInterface* this) {
+    EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
+
+    for (uint32_t i = 0; i < vkback->swapchain_framebuffer_count; ++i)
+        vkDestroyFramebuffer(vkback->device, vkback->swapchain_framebuffers[i], 0);
+
+    for (uint32_t i = 0; i < vkback->swapchain_image_view_count; ++i)
+        vkDestroyImageView(vkback->device, vkback->swapchain_image_views[i], 0);
+
+    vkDestroySwapchainKHR(vkback->device, vkback->swapchain, 0);
+}
+
+void eng_RENDERER_BACKEND_VULKAN_recreate_swapchain(EngRendererInterface* this, EngPlatformInterface* platform) {
+    EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
+
+    // hack to pause if width or height is zero (ie. minimizing) until thats not the case
+    int w,h;
+    platform->get_frame_size(platform, &w,&h);
+
+    vkDeviceWaitIdle(vkback->device);
+
+    eng_RENDERER_BACKEND_VULKAN_cleanup_swapchain(this);
+
+    eng_RENDERER_BACKEND_VULKAN_create_swapchain(this, platform);
+    eng_RENDERER_BACKEND_VULKAN_create_image_views(this);
+    eng_RENDERER_BACKEND_VULKAN_create_framebuffers(this);
+}
+
+void eng_RENDERER_BACKEND_VULKAN_resize_callback(void* data, int width, int height) {
+    (void)width;
+    (void)height;
+
+    EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = data;
+    vkback->framebuffer_resized = 1;
+}
+
 /* INTERFACE FUNCS */
 
 void eng_RENDERER_BACKEND_VULKAN_constr(EngRendererInterface* this, EngPlatformInterface* platform) {
     EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = malloc(sizeof(EngRendererInterface_RENDERER_BACKEND_VULKAN));
     this->backend_data = vkback;
+
+    vkback->framebuffer_resized = 0;
+    platform->set_resize_callback(platform, vkback, eng_RENDERER_BACKEND_VULKAN_resize_callback);
 
     eng_RENDERER_BACKEND_VULKAN_create_instance(this, platform);
     eng_RENDERER_BACKEND_VULKAN_create_surface(this, platform);
@@ -821,6 +860,8 @@ void eng_RENDERER_BACKEND_VULKAN_destr(EngRendererInterface* this) {
 
     vkDeviceWaitIdle(vkback->device);
 
+    eng_RENDERER_BACKEND_VULKAN_cleanup_swapchain(this);
+
     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
         vkDestroySemaphore(vkback->device, vkback->image_available_semaphores[i], 0);
         vkDestroySemaphore(vkback->device, vkback->render_finished_semaphores[i], 0);
@@ -829,17 +870,10 @@ void eng_RENDERER_BACKEND_VULKAN_destr(EngRendererInterface* this) {
 
     vkDestroyCommandPool(vkback->device, vkback->command_pool, 0);
 
-    for (uint32_t i = 0; i < vkback->swapchain_framebuffer_count; ++i)
-        vkDestroyFramebuffer(vkback->device, vkback->swapchain_framebuffers[i], 0);
-
     vkDestroyPipeline(vkback->device, vkback->graphics_pipeline, 0);
     vkDestroyPipelineLayout(vkback->device, vkback->pipeline_layout, 0);
     vkDestroyRenderPass(vkback->device, vkback->render_pass, 0);
 
-    for (uint32_t i = 0; i < vkback->swapchain_image_view_count; ++i)
-        vkDestroyImageView(vkback->device, vkback->swapchain_image_views[i], 0);
-
-    vkDestroySwapchainKHR(vkback->device, vkback->swapchain, 0);
     vkDestroySurfaceKHR(vkback->instance, vkback->surface, 0);
     vkDestroyDevice(vkback->device, 0);
     vkDestroyInstance(vkback->instance, 0);
@@ -857,15 +891,23 @@ void eng_RENDERER_BACKEND_VULKAN_destr(EngRendererInterface* this) {
     free(this);
 }
 
-void eng_RENDERER_BACKEND_VULKAN_draw_frame(EngRendererInterface* this) {
+void eng_RENDERER_BACKEND_VULKAN_draw_frame(EngRendererInterface* this, EngPlatformInterface* platform) {
     EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
 
     vkWaitForFences(vkback->device, 1, &vkback->in_flight_fences[vkback->current_frame], VK_TRUE, UINT64_MAX);
-    vkResetFences(vkback->device, 1, &vkback->in_flight_fences[vkback->current_frame]);
 
     uint32_t imageindex;
-    vkAcquireNextImageKHR(vkback->device, vkback->swapchain, UINT64_MAX, vkback->image_available_semaphores[vkback->current_frame], VK_NULL_HANDLE, &imageindex);
+    VkResult result = vkAcquireNextImageKHR(vkback->device, vkback->swapchain, UINT64_MAX, vkback->image_available_semaphores[vkback->current_frame], VK_NULL_HANDLE, &imageindex);
 
+    if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+        eng_RENDERER_BACKEND_VULKAN_recreate_swapchain(this, platform);
+        return;
+    } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+        printf("failed to acquire swapchain image!\n");
+        exit(1);
+    }
+
+    vkResetFences(vkback->device, 1, &vkback->in_flight_fences[vkback->current_frame]);
     vkResetCommandBuffer(vkback->command_buffers[vkback->current_frame], 0);
 
     eng_RENDERER_BACKEND_VULKAN_record_command_buffer(this, vkback->command_buffers[vkback->current_frame], imageindex);
@@ -902,7 +944,14 @@ void eng_RENDERER_BACKEND_VULKAN_draw_frame(EngRendererInterface* this) {
     presentinfo.pImageIndices = &imageindex;
     presentinfo.pResults = 0;
 
-    vkQueuePresentKHR(vkback->present_queue, &presentinfo);
+    result = vkQueuePresentKHR(vkback->present_queue, &presentinfo);
+
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || vkback->framebuffer_resized) {
+        eng_RENDERER_BACKEND_VULKAN_recreate_swapchain(this, platform);
+    } else if (result != VK_SUCCESS) {
+        printf("failed to acquire swapchain image!\n");
+        exit(1);
+    }
 
     vkback->current_frame = (vkback->current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
 }

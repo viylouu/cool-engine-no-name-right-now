@@ -36,7 +36,7 @@ struct EngPlatformInterface {
         EngPlatformInterface* this
         );
 
-// renderapi helpers
+// renderapi helpers, dont call these
 
     // casts to void* if not already
     void* (*get_handle)(
@@ -47,6 +47,12 @@ struct EngPlatformInterface {
         EngPlatformInterface* this,
         int* width,
         int* height
+        );
+
+    void (*set_resize_callback)(
+        EngPlatformInterface* this,
+        void* callbackdata,
+        void (*callback)(void* data, int width, int height)
         );
 
 // renderer specific shit
