@@ -176,11 +176,16 @@ rm -f "$OBJDIR/objs.tmp"
 
 rm -r intf/lib/ceng.lib 2>/dev/null
 mkdir -p intf/lib
-ar rcs intf/lib/ceng.lib "${OBJS[@]}"
+
+if $BUILD_WINDOWS; then
+    ar rcs intf/lib/ceng.lib "${OBJS[@]}"
+else
+    ar rcs intf/lib/libceng.a "${OBJS[@]}"
+fi
 
 wait
 
-odin build src -out:build/out.game
+odin build src -out:"build/out.game" -extra-linker-flags:"$C_LINKFLAGS"
 
 #### RUNNING
 

@@ -16,19 +16,19 @@ vec3 colors[6] = vec3[](
     vec3(0,0,1)
     );
 
-layout (binding = 0) uniform UBO {
+/*layout (binding = 0) uniform UBO {
     mat4 proj;
     mat4 transf;
     //vec2 pos;
     //vec2 size;
     //vec4 col;
-} ubo;
+} ubo;*/
 
 layout (location = 0) out vec2 fUV;
 
 void main() {
     vec2 vert = verts[gl_VertexIndex];
 
-    gl_Position = ubo.proj * ubo.transf * vec4(vert, 0,1);
+    gl_Position = /*ubo.proj * ubo.transf */ vec4(vert, 0,1);
     fUV = vert;
 }

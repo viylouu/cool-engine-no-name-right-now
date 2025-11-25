@@ -70,7 +70,13 @@ RendererInterface :: struct {
     // }
 }
 
-foreign import eng "lib/ceng.lib"
+when ODIN_OS == .Linux {
+    foreign import eng "lib/libceng.a"
+} else {
+    foreign import eng "lib/ceng.lib"
+}
+
+
 @(default_calling_convention = "c")
 foreign eng {
     @(link_name="eng_make_platform_interface") make_platform_interface :: proc (backend: PlatformBackend) -> ^PlatformInterface ---
