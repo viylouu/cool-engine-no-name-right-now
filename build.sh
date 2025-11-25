@@ -175,6 +175,7 @@ rm -f "$OBJDIR/objs.tmp"
 #fi
 
 rm -r intf/lib/ceng.lib 2>/dev/null
+mkdir -p intf/lib
 ar rcs intf/lib/ceng.lib "${OBJS[@]}"
 
 wait
