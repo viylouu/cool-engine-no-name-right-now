@@ -23,8 +23,8 @@ EXAMPLE=""
 for arg in "$@"; do
     if [ "$arg" = "-t" ]; then
         BUILD_TEST=true
-    elif [ "$arg" = "-w" ]; then
-        BUILD_WINDOWS=true
+    #elif [ "$arg" = "-w" ]; then
+    #    BUILD_WINDOWS=true
     #else
     #    EXAMPLE="$arg"
     fi
@@ -167,11 +167,19 @@ wait
 mapfile -t OBJS < "$OBJDIR/objs.tmp"
 rm -f "$OBJDIR/objs.tmp"
 
-if $BUILD_WINDOWS; then
-    "${COMPILER_C[@]}" "${OBJS[@]}" $C_LINKFLAGS -o build/out.exe
-else
-    "${COMPILER_C[@]}" -fuse-ld=lld "${OBJS[@]}" $C_LINKFLAGS -o build/out.game
-fi
+#if $BUILD_WINDOWS; then
+    #"${COMPILER_C[@]}" "${OBJS[@]}" $C_LINKFLAGS -o build/out.exe
+    
+#else
+    #"${COMPILER_C[@]}" -fuse-ld=lld "${OBJS[@]}" $C_LINKFLAGS -o build/out.game
+#fi
+
+rm -r intf/lib/ceng.lib 2>/dev/null
+ar rcs intf/lib/ceng.lib "${OBJS[@]}"
+
+wait
+
+odin build src -out:build/out.game
 
 #### RUNNING
 

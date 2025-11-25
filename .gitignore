@@ -3,3 +3,4 @@
 /cloc.sh
 /data/eng/shaders/vulkan/*.spv
 /compile_commands.json
+/intf/lib/
