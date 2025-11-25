@@ -9,8 +9,14 @@ typedef enum EngRendererBackend {
     ENG_RENDERER_VULKAN
 } EngRendererBackend;
 
+typedef struct EngUniform {
+    void* backend_data;
+} EngUniform;
+
 typedef struct EngShader {
     void* backend_data;
+    EngUniform* uniforms;
+    uint32_t uniform_count;
 } EngShader;
 
 typedef struct EngRendererInterface EngRendererInterface;
@@ -47,6 +53,11 @@ struct EngRendererInterface {
             );
 
         void (*unload_shader)(
+            EngRendererInterface* this,
+            EngShader* shader
+            );
+
+        void (*describe_ubo)(
             EngRendererInterface* this,
             EngShader* shader
             );
