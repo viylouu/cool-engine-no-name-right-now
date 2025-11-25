@@ -9,7 +9,7 @@ main :: proc() {
     render := intf.make_renderer_interface(.VULKAN)
     render->constr(platf)
 
-    shader := render->load_shader("data/eng/shaders/vulkan/tri.vert.spv", "data/eng/shaders/vulkan/tri.frag.spv")
+    shader := render->load_shader("data/eng/shaders/vulkan/rect.vert.spv", "data/eng/shaders/vulkan/rect.frag.spv")
 
     for platf->is_running() {
         platf->poll()

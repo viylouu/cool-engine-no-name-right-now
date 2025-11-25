@@ -8,8 +8,8 @@
 THISPATH="data/eng/shaders/vulkan/"
 
 SHADERS=(
-    "tri.frag"
-    "tri.vert"
+    "rect.frag"
+    "rect.vert"
     )
 
 COMPILER=("glslc")
