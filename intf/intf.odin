@@ -34,14 +34,18 @@ RendererBackend :: enum {
     VULKAN
 }
 
-Uniform :: struct {
+Shader :: struct {
     backend_data: rawptr
 }
 
-Shader :: struct {
+UniformBuffer :: struct {
     backend_data: rawptr,
-    uniforms: ^Uniform,
-    uniform_count: u32
+    shader: ^Shader
+}
+
+ShaderStage :: enum {
+    VERTEX = 1 << 0,
+    FRAGMENT = 1 << 1
 }
 
 RendererInterface :: struct {
@@ -57,10 +61,17 @@ RendererInterface :: struct {
 // draw stuff
 
     // shaders {
-        load_shader: proc "c" (this: ^RendererInterface, vert, frag: cstring) -> ^Shader,
+        load_shader: proc "c" (this: ^RendererInterface, vert, frag: cstring, uniform_buffers: ^^UniformBuffer, uniform_buffer_count: u32) -> ^Shader, // not sure what the underlying data of a multipointer is, so its this for now. you can just do like &ARR[0] for now
         unload_shader: proc "c" (this: ^RendererInterface, shader: ^Shader),
-
-        describe_ubo: proc "c" (this: ^RendererInterface, shader: ^Shader),
+    // } uniform buffers {
+        create_uniform_buffer: proc "c" (
+            this: ^RendererInterface, 
+            name: cstring,
+            stage: u32, // uses the ShaderStage type, but is a u32 so the stage may be bitor'd with others (eg: VERTEX | FRAGMENT would mean its used in the vertex and fragment stages) 
+            size: u32 // no clue what size_of returns (and what the c equivalent is)
+        ) -> ^UniformBuffer,
+        destroy_uniform_buffer: proc "c" (this: ^RendererInterface, uniform_buffer: ^UniformBuffer),
+        update_uniform_buffer: proc "c" (this: ^RendererInterface, uniform_buffer: ^UniformBuffer, new_data: rawptr),
     // } commands {
         draw: proc "c" (this: ^RendererInterface, vertices,indices: i32),
     // } bindings {

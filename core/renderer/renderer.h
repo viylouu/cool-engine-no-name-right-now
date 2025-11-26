@@ -9,15 +9,21 @@ typedef enum EngRendererBackend {
     ENG_RENDERER_VULKAN
 } EngRendererBackend;
 
-typedef struct EngUniform {
+typedef struct EngShader EngShader;
+typedef struct EngUniformBuffer {
     void* backend_data;
-} EngUniform;
+} EngUniformBuffer;
 
-typedef struct EngShader {
+struct EngShader {
     void* backend_data;
-    EngUniform* uniforms;
-    uint32_t uniform_count;
-} EngShader;
+    EngUniformBuffer** buffers;
+    uint32_t buffer_count;
+};
+
+typedef enum EngShaderStage {
+    ENG_STAGE_VERTEX = 1 << 0,
+    ENG_STAGE_FRAGMENT = 1 << 1
+} EngShaderStage;
 
 typedef struct EngRendererInterface EngRendererInterface;
 struct EngRendererInterface {
@@ -49,17 +55,32 @@ struct EngRendererInterface {
         EngShader* (*load_shader)(
             EngRendererInterface* this,
             const char* vert,
-            const char* frag
+            const char* frag,
+            EngUniformBuffer** uniform_buffers,
+            uint32_t uniform_buffer_count
             );
 
         void (*unload_shader)(
             EngRendererInterface* this,
             EngShader* shader
             );
-
-        void (*describe_ubo)(
+    // } uniform buffers {
+        EngUniformBuffer* (*create_uniform_buffer)(
             EngRendererInterface* this,
-            EngShader* shader
+            char* name,
+            uint32_t stage, // uses the EngShaderStage type, but is a uint32_t so the stage may be bitor'd with others (eg: VERTEX | FRAGMENT would mean its used in the vertex and fragment stages) 
+            uint32_t size // fuck size_t, i have no fucking clue what the odin equivalent is, so im not using it
+            );
+
+        void (*destroy_uniform_buffer)(
+            EngRendererInterface* this,
+            EngUniformBuffer* uniform_buffer
+            );
+
+        void (*update_uniform_buffer)(
+            EngRendererInterface* this,
+            EngUniformBuffer* uniform_buffer,
+            void* new_data
             );
     // } commands {
         void (*draw)(

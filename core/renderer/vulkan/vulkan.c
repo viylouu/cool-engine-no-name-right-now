@@ -787,15 +787,24 @@ void eng_RENDERER_BACKEND_VULKAN_send(EngRendererInterface* this, EngPlatformInt
 typedef struct EngShader_RENDERER_BACKEND_VULKAN {
     VkPipeline pipeline;
     VkPipelineLayout pipeline_layout;
+    VkDescriptorSetLayout* layouts;
+    uint32_t layout_count;
 } EngShader_RENDERER_BACKEND_VULKAN;
 
+typedef struct EngUniformBuffer_RENDERER_BACKEND_VULKAN {
+    VkDescriptorSetLayout descriptor_set_layout;
+} EngUniformBuffer_RENDERER_BACKEND_VULKAN;
+
+
 // rebranded to be "load shader"
-EngShader* eng_RENDERER_BACKEND_VULKAN_load_shader(EngRendererInterface* this, const char* vert_path, const char* frag_path) {
+EngShader* eng_RENDERER_BACKEND_VULKAN_load_shader(EngRendererInterface* this, const char* vert_path, const char* frag_path, EngUniformBuffer** buffers, uint32_t buffer_count) {
     EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
 
     EngShader* shader = malloc(sizeof(EngShader));
     EngShader_RENDERER_BACKEND_VULKAN* vkshader = malloc(sizeof(EngShader_RENDERER_BACKEND_VULKAN));
     shader->backend_data = vkshader;
+    shader->buffers = buffers;
+    shader->buffer_count = buffer_count;
 
     size_t vert_size = 0;
     size_t frag_size = 0;
@@ -903,10 +912,18 @@ EngShader* eng_RENDERER_BACKEND_VULKAN_load_shader(EngRendererInterface* this, c
         colorblending.blendConstants[2] = 0;
         colorblending.blendConstants[3] = 0;
 
+    vkshader->layout_count = buffer_count;
+    vkshader->layouts = malloc(sizeof(VkDescriptorSetLayout) * vkshader->layout_count);
+
+    for (uint32_t i = 0; i < vkshader->layout_count; ++i) {
+        EngUniformBuffer_RENDERER_BACKEND_VULKAN* vkbuffer = shader->buffers[i]->backend_data;
+        vkshader->layouts[i] = vkbuffer->descriptor_set_layout;
+    }
+
     VkPipelineLayoutCreateInfo pipelinelayoutinfo = {0};
         pipelinelayoutinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        pipelinelayoutinfo.setLayoutCount = 0;
-        pipelinelayoutinfo.pSetLayouts = 0;
+        pipelinelayoutinfo.setLayoutCount = buffer_count;
+        pipelinelayoutinfo.pSetLayouts = vkshader->layouts;
         pipelinelayoutinfo.pushConstantRangeCount = 0;
         pipelinelayoutinfo.pPushConstantRanges = 0;
 
@@ -952,6 +969,7 @@ void eng_RENDERER_BACKEND_VULKAN_unload_shader(EngRendererInterface* this, EngSh
     vkDestroyPipeline(vkback->device, vkshader->pipeline, 0);
     vkDestroyPipelineLayout(vkback->device, vkshader->pipeline_layout, 0);
 
+    free(vkshader->layouts);
     free(vkshader);
     free(shader);
 }
@@ -1004,6 +1022,54 @@ void eng_RENDERER_BACKEND_VULKAN_bind_viewport(EngRendererInterface* this, vec4 
     vkCmdSetScissor(vkback->command_buffers[vkback->current_frame], 0,1, &scissor);
 }
 
+
+EngUniformBuffer* eng_RENDERER_BACKEND_VULKAN_create_uniform_buffer(EngRendererInterface* this, char* name, uint32_t stage, uint32_t size) {
+    EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
+
+    // unused
+    (void)name;
+    (void)size;
+
+    EngUniformBuffer* buffer = malloc(sizeof(EngUniformBuffer));
+    EngUniformBuffer_RENDERER_BACKEND_VULKAN* vkbuffer = malloc(sizeof(EngUniformBuffer_RENDERER_BACKEND_VULKAN));
+    buffer->backend_data = vkbuffer;
+
+    VkDescriptorSetLayoutBinding ubolayoutbinding = {0};
+        ubolayoutbinding.binding = 0;
+        ubolayoutbinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        ubolayoutbinding.descriptorCount = 1;
+
+    // do bit magic
+    VkShaderStageFlags flags = 0;
+    if ((stage & ENG_STAGE_VERTEX) == ENG_STAGE_VERTEX)
+        flags |= VK_SHADER_STAGE_VERTEX_BIT;
+    if ((stage & ENG_STAGE_FRAGMENT) == ENG_STAGE_FRAGMENT)
+        flags |= VK_SHADER_STAGE_FRAGMENT_BIT;
+    
+    ubolayoutbinding.stageFlags = flags;
+    ubolayoutbinding.pImmutableSamplers = 0;
+
+    VkDescriptorSetLayoutCreateInfo layoutinfo = {0};
+        layoutinfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        layoutinfo.bindingCount = 1;
+        layoutinfo.pBindings = &ubolayoutbinding;
+
+    if (vkCreateDescriptorSetLayout(vkback->device, &layoutinfo, 0, &vkbuffer->descriptor_set_layout) != VK_SUCCESS) {
+        printf("failed to create descriptor set layout!\n");
+        exit(1);
+    }
+
+    return buffer;
+}
+
+void eng_RENDERER_BACKEND_VULKAN_destroy_uniform_buffer(EngRendererInterface* this, EngUniformBuffer* buffer) {
+    EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
+
+    EngUniformBuffer_RENDERER_BACKEND_VULKAN* vkbuffer = buffer->backend_data;
+
+    vkDestroyDescriptorSetLayout(vkback->device, vkbuffer->descriptor_set_layout, 0);
+}
+
 /* FUNCS */
 
 EngRendererInterface* eng_RENDERER_BACKEND_VULKAN_make_interface(void) {
@@ -1019,6 +1085,9 @@ EngRendererInterface* eng_RENDERER_BACKEND_VULKAN_make_interface(void) {
 
     interface->load_shader = eng_RENDERER_BACKEND_VULKAN_load_shader;
     interface->unload_shader = eng_RENDERER_BACKEND_VULKAN_unload_shader;
+
+    interface->create_uniform_buffer = eng_RENDERER_BACKEND_VULKAN_create_uniform_buffer;
+    interface->destroy_uniform_buffer = eng_RENDERER_BACKEND_VULKAN_destroy_uniform_buffer;
     
     interface->draw = eng_RENDERER_BACKEND_VULKAN_draw;
 
