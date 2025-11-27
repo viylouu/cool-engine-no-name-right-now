@@ -9,16 +9,19 @@ typedef enum EngRendererBackend {
     ENG_RENDERER_VULKAN
 } EngRendererBackend;
 
-typedef struct EngShader EngShader;
 typedef struct EngUniformBuffer {
     void* backend_data;
 } EngUniformBuffer;
 
-struct EngShader {
+typedef struct EngVertexBuffer {
+    void* backend_data;
+} EngVertexBuffer;
+
+typedef struct EngShader {
     void* backend_data;
     EngUniformBuffer** buffers;
     uint32_t buffer_count;
-};
+} EngShader;
 
 typedef enum EngShaderStage {
     ENG_STAGE_VERTEX = 1 << 0,
@@ -82,6 +85,21 @@ struct EngRendererInterface {
             EngUniformBuffer* uniform_buffer,
             void* new_data
             );
+    // } vertex arrays {
+        // how tf should this work
+        /*EngVertexBuffer* (*create_vertex_buffer)(
+            EngRendererInterface* this,
+            EngShader* shader,
+            uint32_t binding,
+            uint32_t total_size,
+            uint32_t element_size,
+            uint32_t
+            );
+
+        void (*destroy_vertex_buffer)(
+            EngRendererInterface* this,
+            EngVertexBuffer* vertex_buffer
+            );*/
     // } commands {
         void (*draw)(
             EngRendererInterface* this,
