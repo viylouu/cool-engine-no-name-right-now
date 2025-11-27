@@ -4,6 +4,10 @@
 
 #include <deps/vulkan/vulkan.h>
 
+/* VARS */
+
+#define MAX_FRAMES_IN_FLIGHT 2
+
 /* TYPES */
 
 typedef struct EngRendererInterface_RENDERER_BACKEND_VULKAN {
@@ -35,15 +39,11 @@ typedef struct EngRendererInterface_RENDERER_BACKEND_VULKAN {
     VkCommandPool command_pool;
 
     // pointer spam time
-    VkCommandBuffer* command_buffers;
-    uint32_t command_buffer_count;
+    VkCommandBuffer command_buffers[MAX_FRAMES_IN_FLIGHT];
 
-    VkSemaphore* image_available_semaphores;
-    uint32_t image_available_semaphore_count;
-    VkSemaphore* render_finished_semaphores;
-    uint32_t render_finished_semaphore_count;
-    VkFence* in_flight_fences;
-    uint32_t in_flight_fence_count;
+    VkSemaphore image_available_semaphores[MAX_FRAMES_IN_FLIGHT];
+    VkSemaphore render_finished_semaphores[MAX_FRAMES_IN_FLIGHT];
+    VkFence in_flight_fences[MAX_FRAMES_IN_FLIGHT];
 
     uint32_t current_frame;
     uint32_t image_index;

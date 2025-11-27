@@ -26,8 +26,6 @@ const char* requiredextensions[] = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
 
-const uint32_t MAX_FRAMES_IN_FLIGHT = 2;
-
 /* PRIVATE FUNCS */
 
 void eng_RENDERER_BACKEND_VULKAN_create_instance(EngRendererInterface* this, EngPlatformInterface* platform) {
@@ -546,14 +544,11 @@ void eng_RENDERER_BACKEND_VULKAN_create_command_pool(EngRendererInterface* this)
 void eng_RENDERER_BACKEND_VULKAN_create_command_buffers(EngRendererInterface* this) {
     EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
 
-    vkback->command_buffer_count = MAX_FRAMES_IN_FLIGHT;
-    vkback->command_buffers = malloc(sizeof(VkCommandBuffer) * vkback->command_buffer_count);
-
     VkCommandBufferAllocateInfo allocinfo = {0};
         allocinfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
         allocinfo.commandPool = vkback->command_pool;
         allocinfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        allocinfo.commandBufferCount = vkback->command_buffer_count;
+        allocinfo.commandBufferCount = MAX_FRAMES_IN_FLIGHT;
 
     if (vkAllocateCommandBuffers(vkback->device, &allocinfo, vkback->command_buffers) != VK_SUCCESS) {
         printf("failed to allocate command buffers!\n");
@@ -563,13 +558,6 @@ void eng_RENDERER_BACKEND_VULKAN_create_command_buffers(EngRendererInterface* th
 
 void eng_RENDERER_BACKEND_VULKAN_create_sync_objects(EngRendererInterface* this) {
     EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
-
-    vkback->image_available_semaphore_count = MAX_FRAMES_IN_FLIGHT;
-    vkback->image_available_semaphores = malloc(sizeof(VkSemaphore) * vkback->image_available_semaphore_count);
-    vkback->render_finished_semaphore_count = MAX_FRAMES_IN_FLIGHT;
-    vkback->render_finished_semaphores = malloc(sizeof(VkSemaphore) * vkback->render_finished_semaphore_count);
-    vkback->in_flight_fence_count = MAX_FRAMES_IN_FLIGHT;
-    vkback->in_flight_fences = malloc(sizeof(VkFence) * vkback->in_flight_fence_count);
 
     VkSemaphoreCreateInfo semaphoreinfo = {0};
         semaphoreinfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -669,10 +657,10 @@ void eng_RENDERER_BACKEND_VULKAN_destr(EngRendererInterface* this) {
     vkDestroyDevice(vkback->device, 0);
     vkDestroyInstance(vkback->instance, 0);
 
-    free(vkback->command_buffers);
+    /*free(vkback->command_buffers);
     free(vkback->image_available_semaphores);
     free(vkback->render_finished_semaphores);
-    free(vkback->in_flight_fences);
+    free(vkback->in_flight_fences);*/
 
     free(vkback->swapchain_framebuffers);
     free(vkback->swapchain_image_views);
