@@ -28,6 +28,25 @@ typedef enum EngShaderStage {
     ENG_STAGE_FRAGMENT = 1 << 1
 } EngShaderStage;
 
+typedef enum EngGPUPrimitive {
+    ENG_PRIMITIVE_BYTE,
+    ENG_PRIMITIVE_UBYTE,
+    ENG_PRIMITIVE_SHORT,
+    ENG_PRIMITIVE_USHORT,
+    ENG_PRIMITIVE_INT,
+    ENG_PRIMITIVE_UINT,
+    ENG_PRIMITIVE_FLOAT
+} EngGPUPrimitive;
+
+typedef struct EngBufferAttribute {
+    char* name;
+    uint32_t location;
+    uint32_t offset;
+    uint32_t components;
+    EngGPUPrimitive scalar_type;
+    uint8_t normalized;
+} EngBufferAttribute;
+
 typedef struct EngRendererInterface EngRendererInterface;
 struct EngRendererInterface {
     void* backend_data;

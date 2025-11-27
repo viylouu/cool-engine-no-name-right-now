@@ -783,6 +783,10 @@ typedef struct EngUniformBuffer_RENDERER_BACKEND_VULKAN {
     VkDescriptorSetLayout descriptor_set_layout;
 } EngUniformBuffer_RENDERER_BACKEND_VULKAN;
 
+typedef struct EngVertexBuffer_RENDERER_BACKEND_VULKAN {
+    VkVertexInputAttributeDescription* attribdescs;
+} EngVertexBuffer_RENDERER_BACKEND_VULKAN;
+
 
 // rebranded to be "load shader"
 EngShader* eng_RENDERER_BACKEND_VULKAN_load_shader(EngRendererInterface* this, const char* vert_path, const char* frag_path, EngUniformBuffer** buffers, uint32_t buffer_count) {
@@ -1056,6 +1060,102 @@ void eng_RENDERER_BACKEND_VULKAN_destroy_uniform_buffer(EngRendererInterface* th
     EngUniformBuffer_RENDERER_BACKEND_VULKAN* vkbuffer = buffer->backend_data;
 
     vkDestroyDescriptorSetLayout(vkback->device, vkbuffer->descriptor_set_layout, 0);
+}
+
+// below you will see absolutely horrible code
+// please scroll down or collapse this if you can
+// also, if you know of another way to make this better, PLEASE send a pull request or an issue or whatever
+VkFormat eng_RENDERER_BACKEND_VULKAN_gpuPrimitiveToVkFormat(EngGPUPrimitive type, uint32_t components, uint8_t normalized) {
+    if (components < 1 || components > 4) {
+        printf("invalid component size of %u!\n", components);
+        exit(1);
+    } else if(components == 3) {
+        printf("3 component GPU types not supported! padding to 4 components!\n");
+        components = 4;
+    }
+
+    if (normalized)
+        switch (type) {
+            case ENG_PRIMITIVE_INT:
+            case ENG_PRIMITIVE_UINT:
+            case ENG_PRIMITIVE_FLOAT:
+                printf("this type cannot be normalized! (type = %u)\n", type);
+                exit(1);
+            default: break;
+        }
+
+    switch (type) {
+        case ENG_PRIMITIVE_BYTE:
+            switch (components) {
+                case 1: return normalized? VK_FORMAT_R8_SNORM       : VK_FORMAT_R8_SINT;
+                case 2: return normalized? VK_FORMAT_R8G8_SNORM     : VK_FORMAT_R8G8_SINT;
+                case 4: return normalized? VK_FORMAT_R8G8B8A8_SNORM : VK_FORMAT_R8G8B8A8_SINT;
+            } break;
+        case ENG_PRIMITIVE_UBYTE:
+            switch (components) {
+                case 1: return normalized? VK_FORMAT_R8_UNORM       : VK_FORMAT_R8_UINT;
+                case 2: return normalized? VK_FORMAT_R8G8_UNORM     : VK_FORMAT_R8G8_UINT;
+                case 4: return normalized? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8G8B8A8_UINT;
+            } break;
+        case ENG_PRIMITIVE_SHORT:
+            switch (components) {
+                case 1: return normalized? VK_FORMAT_R16_SNORM          : VK_FORMAT_R16_SINT;
+                case 2: return normalized? VK_FORMAT_R16G16_SNORM       : VK_FORMAT_R16G16_SINT;
+                case 4: return normalized? VK_FORMAT_R16G16B16A16_SNORM : VK_FORMAT_R16G16B16A16_SINT;
+            } break;
+        case ENG_PRIMITIVE_USHORT:
+            switch (components) {
+                case 1: return normalized? VK_FORMAT_R16_UNORM          : VK_FORMAT_R16_UINT;
+                case 2: return normalized? VK_FORMAT_R16G16_UNORM       : VK_FORMAT_R16G16_UINT;
+                case 4: return normalized? VK_FORMAT_R16G16B16A16_UNORM : VK_FORMAT_R16G16B16A16_UINT;
+            } break;
+        case ENG_PRIMITIVE_INT:
+            switch (components) {
+                case 1: return VK_FORMAT_R32_SINT;
+                case 2: return VK_FORMAT_R32G32_SINT;
+                case 4: return VK_FORMAT_R32G32B32A32_SINT;
+            } break;
+        case ENG_PRIMITIVE_UINT:
+            switch (components) {
+                case 1: return VK_FORMAT_R32_UINT;
+                case 2: return VK_FORMAT_R32G32_UINT;
+                case 4: return VK_FORMAT_R32G32B32A32_UINT;
+            } break;
+        case ENG_PRIMITIVE_FLOAT:
+            switch (components) {
+                case 1: return VK_FORMAT_R32_SFLOAT;
+                case 2: return VK_FORMAT_R32G32_SFLOAT;
+                case 4: return VK_FORMAT_R32G32B32A32_SFLOAT;
+            } break;
+        default:
+            printf("unreachable! tried converting EngGPUPrimitive to VkFormat and got type = %d!\n", type);
+            exit(1);
+    }
+
+    return VK_FORMAT_UNDEFINED;
+}
+
+EngVertexBuffer* eng_RENDERER_BACKEND_VULKAN_create_vertex_buffer(EngRendererInterface* this, uint32_t binding, uint32_t element_size, EngBufferAttribute* attribs, uint32_t attrib_count) {
+    EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
+
+    EngVertexBuffer* buffer = malloc(sizeof(EngVertexBuffer));
+    EngVertexBuffer_RENDERER_BACKEND_VULKAN* vkbuffer = malloc(sizeof(EngVertexBuffer_RENDERER_BACKEND_VULKAN));
+    buffer->backend_data = vkbuffer;
+
+    VkVertexInputBindingDescription bindingdesc = {0};
+        bindingdesc.binding = binding;
+        bindingdesc.stride = element_size;
+        bindingdesc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+    vkbuffer->attribdescs = malloc(sizeof(VkVertexInputAttributeDescription) * attrib_count);
+    for (uint32_t i = 0; i < attrib_count; ++i) {
+        vkbuffer->attribdescs[i].binding = binding;
+        vkbuffer->attribdescs[i].location = attribs[i].location;
+        vkbuffer->attribdescs[i].format = eng_RENDERER_BACKEND_VULKAN_gpuPrimitiveToVkFormat(attribs[i].scalar_type, attribs[i].components, attribs[i].normalized);
+        vkbuffer->attribdescs[i].offset = attribs[i].offset;
+    } 
+
+    return buffer;
 }
 
 /* FUNCS */
