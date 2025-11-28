@@ -6,7 +6,8 @@
 /* TYPES */
 
 typedef enum EngRendererBackend {
-    ENG_RENDERER_VULKAN
+    ENG_RENDERER_VULKAN,
+    ENG_RENDERER_OPENGL
 } EngRendererBackend;
 
 typedef struct EngUniformBuffer {
@@ -19,8 +20,10 @@ typedef struct EngVertexBuffer {
 
 typedef struct EngShader {
     void* backend_data;
-    EngUniformBuffer** buffers;
-    uint32_t buffer_count;
+    EngVertexBuffer** vbuffers;
+    uint32_t vbuffer_count;
+    EngUniformBuffer** ubuffers;
+    uint32_t ubuffer_count;
 } EngShader;
 
 typedef enum EngShaderStage {
@@ -78,6 +81,8 @@ struct EngRendererInterface {
             EngRendererInterface* this,
             const char* vert,
             const char* frag,
+            EngVertexBuffer** vertex_buffers,
+            uint32_t vertex_buffer_count,
             EngUniformBuffer** uniform_buffers,
             uint32_t uniform_buffer_count
             );

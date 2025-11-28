@@ -31,16 +31,24 @@ PlatformInterface :: struct {
 }
 
 RendererBackend :: enum {
-    VULKAN
+    VULKAN,
+    OPENGL
 }
 
 Shader :: struct {
-    backend_data: rawptr
+    backend_data: rawptr,
+    vbuffers: ^^VertexBuffer,
+    vbuffer_count: u32,
+    ubuffers: ^^UniformBuffer,
+    ubuffer_count: u32
 }
 
 UniformBuffer :: struct {
-    backend_data: rawptr,
-    shader: ^Shader
+    backend_data: rawptr
+}
+
+VertexBuffer :: struct {
+    backend_data: rawptr
 }
 
 ShaderStage :: enum {
@@ -61,7 +69,7 @@ RendererInterface :: struct {
 // draw stuff
 
     // shaders {
-        load_shader: proc "c" (this: ^RendererInterface, vert, frag: cstring, uniform_buffers: ^^UniformBuffer, uniform_buffer_count: u32) -> ^Shader, // not sure what the underlying data of a multipointer is, so its this for now. you can just do like &ARR[0] for now
+        load_shader: proc "c" (this: ^RendererInterface, vert, frag: cstring, vertex_buffers: ^^VertexBuffer, vertex_buffer_count: u32, uniform_buffers: ^^UniformBuffer, uniform_buffer_count: u32) -> ^Shader, // not sure what the underlying data of a multipointer is, so its this for now. you can just do like &ARR[0] for now
         unload_shader: proc "c" (this: ^RendererInterface, shader: ^Shader),
     // } uniform buffers {
         create_uniform_buffer: proc "c" (

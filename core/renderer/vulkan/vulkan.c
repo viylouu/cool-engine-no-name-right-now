@@ -777,6 +777,8 @@ typedef struct EngShader_RENDERER_BACKEND_VULKAN {
     VkPipelineLayout pipeline_layout;
     VkDescriptorSetLayout* layouts;
     uint32_t layout_count;
+    VkVertexInputAttributeDescription* vbuffer_attribs;
+    VkVertexInputBindingDescription* vbuffer_bindings;
 } EngShader_RENDERER_BACKEND_VULKAN;
 
 typedef struct EngUniformBuffer_RENDERER_BACKEND_VULKAN {
@@ -784,19 +786,22 @@ typedef struct EngUniformBuffer_RENDERER_BACKEND_VULKAN {
 } EngUniformBuffer_RENDERER_BACKEND_VULKAN;
 
 typedef struct EngVertexBuffer_RENDERER_BACKEND_VULKAN {
-    VkVertexInputAttributeDescription* attribdescs;
+    VkVertexInputAttributeDescription* attrib_descs;
+    VkVertexInputBindingDescription* binding_descs;
 } EngVertexBuffer_RENDERER_BACKEND_VULKAN;
 
 
 // rebranded to be "load shader"
-EngShader* eng_RENDERER_BACKEND_VULKAN_load_shader(EngRendererInterface* this, const char* vert_path, const char* frag_path, EngUniformBuffer** buffers, uint32_t buffer_count) {
+EngShader* eng_RENDERER_BACKEND_VULKAN_load_shader(EngRendererInterface* this, const char* vert_path, const char* frag_path, EngVertexBuffer** vbuffers, uint32_t vbuffer_count, EngUniformBuffer** ubuffers, uint32_t ubuffer_count) {
     EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
 
     EngShader* shader = malloc(sizeof(EngShader));
     EngShader_RENDERER_BACKEND_VULKAN* vkshader = malloc(sizeof(EngShader_RENDERER_BACKEND_VULKAN));
     shader->backend_data = vkshader;
-    shader->buffers = buffers;
-    shader->buffer_count = buffer_count;
+    shader->vbuffers = vbuffers;
+    shader->vbuffer_count = vbuffer_count;
+    shader->ubuffers = ubuffers;
+    shader->ubuffer_count = ubuffer_count;
 
     size_t vert_size = 0;
     size_t frag_size = 0;
@@ -830,12 +835,14 @@ EngShader* eng_RENDERER_BACKEND_VULKAN_load_shader(EngRendererInterface* this, c
         dynamicstate.dynamicStateCount = sizeof(dynamicstates) / sizeof(dynamicstates[0]);
         dynamicstate.pDynamicStates = dynamicstates;
 
+    //VkVertexInputAttributeDescription* vbuffer_attribs = malloc(sizeof());
+
     VkPipelineVertexInputStateCreateInfo vertexinputinfo = {0};
         vertexinputinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-        vertexinputinfo.vertexBindingDescriptionCount = 0;
-        vertexinputinfo.pVertexBindingDescriptions = 0;
-        vertexinputinfo.vertexAttributeDescriptionCount = 0;
-        vertexinputinfo.pVertexAttributeDescriptions = 0;
+        //vertexinputinfo.vertexBindingDescriptionCount = vbuffer_count;
+        //vertexinputinfo.pVertexBindingDescriptions = vbuffer_bindings;
+        //vertexinputinfo.vertexAttributeDescriptionCount = vbuffer_count;
+        //vertexinputinfo.pVertexAttributeDescriptions = vbuffer_attribs;
 
     VkPipelineInputAssemblyStateCreateInfo inputassembly = {0};
         inputassembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -904,17 +911,17 @@ EngShader* eng_RENDERER_BACKEND_VULKAN_load_shader(EngRendererInterface* this, c
         colorblending.blendConstants[2] = 0;
         colorblending.blendConstants[3] = 0;
 
-    vkshader->layout_count = buffer_count;
+    vkshader->layout_count = ubuffer_count;
     vkshader->layouts = malloc(sizeof(VkDescriptorSetLayout) * vkshader->layout_count);
 
     for (uint32_t i = 0; i < vkshader->layout_count; ++i) {
-        EngUniformBuffer_RENDERER_BACKEND_VULKAN* vkbuffer = shader->buffers[i]->backend_data;
+        EngUniformBuffer_RENDERER_BACKEND_VULKAN* vkbuffer = shader->ubuffers[i]->backend_data;
         vkshader->layouts[i] = vkbuffer->descriptor_set_layout;
     }
 
     VkPipelineLayoutCreateInfo pipelinelayoutinfo = {0};
         pipelinelayoutinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        pipelinelayoutinfo.setLayoutCount = buffer_count;
+        pipelinelayoutinfo.setLayoutCount = ubuffer_count;
         pipelinelayoutinfo.pSetLayouts = vkshader->layouts;
         pipelinelayoutinfo.pushConstantRangeCount = 0;
         pipelinelayoutinfo.pPushConstantRanges = 0;
@@ -1138,6 +1145,10 @@ VkFormat eng_RENDERER_BACKEND_VULKAN_gpuPrimitiveToVkFormat(EngGPUPrimitive type
 EngVertexBuffer* eng_RENDERER_BACKEND_VULKAN_create_vertex_buffer(EngRendererInterface* this, uint32_t binding, uint32_t element_size, EngBufferAttribute* attribs, uint32_t attrib_count) {
     EngRendererInterface_RENDERER_BACKEND_VULKAN* vkback = this->backend_data;
 
+    (void)vkback;
+    (void)attribs;
+    (void)attrib_count;
+
     EngVertexBuffer* buffer = malloc(sizeof(EngVertexBuffer));
     EngVertexBuffer_RENDERER_BACKEND_VULKAN* vkbuffer = malloc(sizeof(EngVertexBuffer_RENDERER_BACKEND_VULKAN));
     buffer->backend_data = vkbuffer;
@@ -1147,13 +1158,13 @@ EngVertexBuffer* eng_RENDERER_BACKEND_VULKAN_create_vertex_buffer(EngRendererInt
         bindingdesc.stride = element_size;
         bindingdesc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-    vkbuffer->attribdescs = malloc(sizeof(VkVertexInputAttributeDescription) * attrib_count);
-    for (uint32_t i = 0; i < attrib_count; ++i) {
-        vkbuffer->attribdescs[i].binding = binding;
-        vkbuffer->attribdescs[i].location = attribs[i].location;
-        vkbuffer->attribdescs[i].format = eng_RENDERER_BACKEND_VULKAN_gpuPrimitiveToVkFormat(attribs[i].scalar_type, attribs[i].components, attribs[i].normalized);
-        vkbuffer->attribdescs[i].offset = attribs[i].offset;
-    } 
+    //vkbuffer->attribdescs = malloc(sizeof(VkVertexInputAttributeDescription) * attrib_count);
+    //for (uint32_t i = 0; i < attrib_count; ++i) {
+    //    vkbuffer->attribdescs[i].binding = binding;
+    //    vkbuffer->attribdescs[i].location = attribs[i].location;
+    //    vkbuffer->attribdescs[i].format = eng_RENDERER_BACKEND_VULKAN_gpuPrimitiveToVkFormat(attribs[i].scalar_type, attribs[i].components, attribs[i].normalized);
+    //    vkbuffer->attribdescs[i].offset = attribs[i].offset;
+    //} 
 
     return buffer;
 }
@@ -1163,6 +1174,9 @@ EngVertexBuffer* eng_RENDERER_BACKEND_VULKAN_create_vertex_buffer(EngRendererInt
 EngRendererInterface* eng_RENDERER_BACKEND_VULKAN_make_interface(void) {
     EngRendererInterface* interface = malloc(sizeof(EngRendererInterface));
 
+    printf("DO NOT USE VULKAN API!\nIT IS INCOMPLETE!\n");
+    return 0;
+
     interface->backend_api = ENG_RENDERER_VULKAN;
 
     interface->constr = eng_RENDERER_BACKEND_VULKAN_constr;
@@ -1171,7 +1185,7 @@ EngRendererInterface* eng_RENDERER_BACKEND_VULKAN_make_interface(void) {
     interface->frame_begin = eng_RENDERER_BACKEND_VULKAN_frame_begin;
     interface->send = eng_RENDERER_BACKEND_VULKAN_send;
 
-    interface->load_shader = eng_RENDERER_BACKEND_VULKAN_load_shader;
+    //interface->load_shader = eng_RENDERER_BACKEND_VULKAN_load_shader;
     interface->unload_shader = eng_RENDERER_BACKEND_VULKAN_unload_shader;
 
     interface->create_uniform_buffer = eng_RENDERER_BACKEND_VULKAN_create_uniform_buffer;
