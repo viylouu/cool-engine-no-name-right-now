@@ -1174,9 +1174,6 @@ EngVertexBuffer* eng_RENDERER_BACKEND_VULKAN_create_vertex_buffer(EngRendererInt
 EngRendererInterface* eng_RENDERER_BACKEND_VULKAN_make_interface(void) {
     EngRendererInterface* interface = malloc(sizeof(EngRendererInterface));
 
-    printf("DO NOT USE VULKAN API!\nIT IS INCOMPLETE!\n");
-    return 0;
-
     interface->backend_api = ENG_RENDERER_VULKAN;
 
     interface->constr = eng_RENDERER_BACKEND_VULKAN_constr;
